@@ -180,14 +180,14 @@ def main():
         '--user',
         dest='user_to_search',
         action='store',
-        help='GitHub user/org to search within. Eg: techgaun')
+        help='GitHub user/org to search within. Eg: myorg')
 
     group.add_argument(
         '-r',
         '--repo',
         dest='repo_to_search',
         action='store',
-        help='GitHub repo to search within. Eg: techgaun/github-dorks')
+        help='GitHub repo to search within. Eg: myorg/github-dorks')
 
     parser.add_argument(
         '-d',
