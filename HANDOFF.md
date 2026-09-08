@@ -1,9 +1,9 @@
 # HANDOFF.md — NovaXinWei (新信微)
 
 **Version:** 1.0.0
-**Date:** 2026-09-07
+**Date:** 2026-09-08
 **Repo:** https://github.com/novaestellar/novaxinwei
-**Commit:** 08dea75
+**Commit:** 8a64f85
 
 ---
 
@@ -17,12 +17,12 @@ It provides WAF-bypass fetch chain, parallel fetch, dork databases, and 11 socia
 ```
 novaxinwei/
 ├── engine/              # WAF-bypass fetch chain (from insane-search)
-│   ├── phase0.py        # 10 platform API routes
+│   ├── phase0.py        # 15 platform API routes
 │   ├── fetch_chain.py   # Core fetch with TLS impersonation
 │   ├── validators.py    # 4-layer validation
 │   ├── waf_detector.py  # WAF detection
 │   └── transport.py     # HTTP transport
-├── channels/            # 11 social platform channels (from Agent-Reach)
+├── channels/            # 15 social platform channels (from Agent-Reach)
 │   ├── base.py          # Base channel class
 │   ├── utils.py         # Shared utilities (URL, text, process)
 │   └── {platform}.py    # Per-platform channel
@@ -30,7 +30,7 @@ novaxinwei/
 │   ├── shodan-dorks.yaml (126 patterns)
 │   ├── github-dorks.txt (234 patterns)
 │   └── github_dorks/    # CLI for dork execution
-├── references/          # 21 API reference docs
+├── references/          # 22 API reference docs
 ├── cli.py               # Unified CLI entry point
 ├── SKILL.md             # Hermes skill definition
 └── requirements.txt     # Dependencies
