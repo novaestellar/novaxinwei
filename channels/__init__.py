@@ -1,4 +1,4 @@
-"""NovaXinWei channel registry — 11 platforms.
+"""NovaXinWei channel registry — 14 platforms.
 
 Channel contract:
     can_handle(url) → bool
@@ -15,6 +15,9 @@ from .bilibili import BilibiliChannel
 from .facebook import FacebookChannel
 from .instagram import InstagramChannel
 from .linkedin import LinkedInChannel
+from .nodeseek import NodeSeekChannel
+from .nodeloc import NodeLocChannel
+from .pojie import PoJieChannel
 from .reddit import RedditChannel
 from .rss import RSSChannel
 from .twitter import TwitterChannel
@@ -33,6 +36,9 @@ ALL_CHANNELS: List[Channel] = [
     XiaoHongShuChannel(),
     LinkedInChannel(),
     V2EXChannel(),
+    NodeSeekChannel(),
+    NodeLocChannel(),
+    PoJieChannel(),
     RSSChannel(),
     WebChannel(),
 ]

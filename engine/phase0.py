@@ -10,8 +10,9 @@ This file is the ONLY engine/ module allowed to name platform hosts; it is
 exempted in `bias_check.EXPLICIT_ALLOW_FILES`. Do NOT add per-site logic to any
 other engine file — generic WAF handling stays site-agnostic.
 
-Supported platforms (10):
-    reddit, x, youtube, threads, xiaohongshu, bilibili, v2ex, facebook, instagram, linkedin
+Supported platforms (15):
+    reddit, x, youtube, threads, xiaohongshu, bilibili, v2ex, facebook, instagram, linkedin,
+    cnblogs, csdn, segmentfault, so_gitee, codeberg
 
 Contract:
     route(url) -> Optional[dict]
@@ -87,6 +88,16 @@ def _detect(url: str) -> Optional[str]:
         return "instagram"
     if "linkedin.com" in h:
         return "linkedin"
+    if "cnblogs.com" in h:
+        return "cnblogs"
+    if "csdn.net" in h:
+        return "csdn"
+    if "segmentfault.com" in h:
+        return "segmentfault"
+    if "so.gitee.com" in h or h == "so.gitee.com":
+        return "so_gitee"
+    if "codeberg.org" in h:
+        return "codeberg"
     return None
 
 
@@ -399,6 +410,124 @@ def _linkedin(url: str, timeout: int) -> dict:
             "final_url": url, "attempts": attempts}
 
 
+# --- cnblogs ------------------------------------------------------------------
+def _cnblogs(url: str, timeout: int) -> dict:
+    """cnblogs — RSS feed available on most blogs."""
+    attempts: list[dict] = []
+    base = url.split("?", 1)[0].rstrip("/")
+    rss_url = base + "/rss"
+    try:
+        x = _cffi_get(rss_url, timeout=timeout)
+        ok = x.status_code == 200 and ("<rss" in x.text or "<feed" in x.text)
+        attempts.append(_attempt("cnblogs", "rss", ok, x.status_code, x.text,
+                                 "feed" if ok else "no-feed-markers"))
+        if ok:
+            return {"platform": "cnblogs", "ok": True, "route": "rss",
+                    "content": x.text, "final_url": rss_url, "attempts": attempts}
+    except Exception as e:
+        attempts.append(_attempt("cnblogs", "rss", False, 0, "", f"{type(e).__name__}"))
+    # fallback: direct HTML
+    try:
+        x = _cffi_get(url, timeout=timeout)
+        ok = x.status_code == 200 and len(x.text) > 500
+        attempts.append(_attempt("cnblogs", "html", ok, x.status_code, x.text,
+                                 "html" if ok else f"status={x.status_code}"))
+        if ok:
+            return {"platform": "cnblogs", "ok": True, "route": "html",
+                    "content": x.text, "final_url": url, "attempts": attempts}
+    except Exception as e:
+        attempts.append(_attempt("cnblogs", "html", False, 0, "", f"{type(e).__name__}"))
+    return {"platform": "cnblogs", "ok": False, "route": None, "content": "",
+            "final_url": url, "attempts": attempts}
+
+
+# --- csdn ----------------------------------------------------------------------
+def _csdn(url: str, timeout: int) -> dict:
+    """CSDN — direct HTML fetch."""
+    attempts: list[dict] = []
+    try:
+        x = _cffi_get(url, timeout=timeout)
+        ok = x.status_code == 200 and len(x.text) > 500
+        attempts.append(_attempt("csdn", "html", ok, x.status_code, x.text,
+                                 "html" if ok else f"status={x.status_code}"))
+        if ok:
+            return {"platform": "csdn", "ok": True, "route": "html",
+                    "content": x.text, "final_url": url, "attempts": attempts}
+    except Exception as e:
+        attempts.append(_attempt("csdn", "html", False, 0, "", f"{type(e).__name__}"))
+    return {"platform": "csdn", "ok": False, "route": None, "content": "",
+            "final_url": url, "attempts": attempts}
+
+
+# --- segmentfault -------------------------------------------------------------
+def _segmentfault(url: str, timeout: int) -> dict:
+    """SegmentFault — API for articles/questions."""
+    attempts: list[dict] = []
+    # try direct HTML first
+    try:
+        x = _cffi_get(url, timeout=timeout)
+        ok = x.status_code == 200 and len(x.text) > 500
+        attempts.append(_attempt("segmentfault", "html", ok, x.status_code, x.text,
+                                 "html" if ok else f"status={x.status_code}"))
+        if ok:
+            return {"platform": "segmentfault", "ok": True, "route": "html",
+                    "content": x.text, "final_url": url, "attempts": attempts}
+    except Exception as e:
+        attempts.append(_attempt("segmentfault", "html", False, 0, "", f"{type(e).__name__}"))
+    return {"platform": "segmentfault", "ok": False, "route": None, "content": "",
+            "final_url": url, "attempts": attempts}
+
+
+# --- so.gitee ------------------------------------------------------------------
+def _so_gitee(url: str, timeout: int) -> dict:
+    """so.gitee.com — Gitee code search."""
+    attempts: list[dict] = []
+    try:
+        x = _cffi_get(url, timeout=timeout)
+        ok = x.status_code == 200 and len(x.text) > 500
+        attempts.append(_attempt("so_gitee", "html", ok, x.status_code, x.text,
+                                 "html" if ok else f"status={x.status_code}"))
+        if ok:
+            return {"platform": "so_gitee", "ok": True, "route": "html",
+                    "content": x.text, "final_url": url, "attempts": attempts}
+    except Exception as e:
+        attempts.append(_attempt("so_gitee", "html", False, 0, "", f"{type(e).__name__}"))
+    return {"platform": "so_gitee", "ok": False, "route": None, "content": "",
+            "final_url": url, "attempts": attempts}
+
+
+# --- codeberg ------------------------------------------------------------------
+def _codeberg(url: str, timeout: int) -> dict:
+    """Codeberg — Gitea-based, try RSS then HTML."""
+    attempts: list[dict] = []
+    base = url.split("?", 1)[0].rstrip("/")
+    rss_url = base + ".rss"
+    try:
+        x = _cffi_get(rss_url, timeout=timeout)
+        ok = x.status_code == 200 and ("<rss" in x.text or "<feed" in x.text)
+        attempts.append(_attempt("codeberg", "rss", ok, x.status_code, x.text,
+                                 "feed" if ok else "no-feed-markers"))
+        if ok:
+            return {"platform": "codeberg", "ok": True, "route": "rss",
+                    "content": x.text, "final_url": rss_url, "attempts": attempts}
+    except Exception as e:
+        attempts.append(_attempt("codeberg", "rss", False, 0, "", f"{type(e).__name__}"))
+    # fallback: Gitea API
+    api_url = f"https://codeberg.org/api/v1/repos{urlsplit(url).path}"
+    try:
+        x = _cffi_get(api_url, timeout=timeout)
+        ok = x.status_code == 200 and x.text.lstrip().startswith("{")
+        attempts.append(_attempt("codeberg", "api", ok, x.status_code, x.text,
+                                 "json" if ok else f"status={x.status_code}"))
+        if ok:
+            return {"platform": "codeberg", "ok": True, "route": "api",
+                    "content": x.text, "final_url": api_url, "attempts": attempts}
+    except Exception as e:
+        attempts.append(_attempt("codeberg", "api", False, 0, "", f"{type(e).__name__}"))
+    return {"platform": "codeberg", "ok": False, "route": None, "content": "",
+            "final_url": url, "attempts": attempts}
+
+
 # --- router table ------------------------------------------------------------
 _ROUTERS = {
     "reddit": _reddit,
@@ -411,6 +540,11 @@ _ROUTERS = {
     "facebook": _facebook,
     "instagram": _instagram,
     "linkedin": _linkedin,
+    "cnblogs": _cnblogs,
+    "csdn": _csdn,
+    "segmentfault": _segmentfault,
+    "so_gitee": _so_gitee,
+    "codeberg": _codeberg,
 }
 
 
