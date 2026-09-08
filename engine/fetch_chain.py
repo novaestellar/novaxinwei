@@ -1257,7 +1257,7 @@ _R7_ELIGIBLE_PROFILES = frozenset({
 R7_HINT = (
     "R7 API-first recommended: WAF blocking HTML routes. "
     "Use Playwright MCP → browser_navigate → browser_network_requests "
-    "→ filter `/api/`·`/graphql`·`\.json` to discover internal endpoints → "
+    "→ filter `/api/`·`/graphql`·`.json` to discover internal endpoints → "
     "re-fetch via `python -m novaxinwei <API_URL>`. Most API layers have "
     "weaker WAF defenses, curl_cffi alone often suffices."
 )
