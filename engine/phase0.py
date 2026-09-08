@@ -72,6 +72,26 @@ def _attempt(platform: str, route: str, ok: bool, status: int, body: str, note: 
             "bytes": len(body or ""), "note": note}
 
 
+def _pw_get(url: str, *, timeout: int = 20) -> str:
+    """Playwright headless browser — fetches rendered HTML."""
+    from playwright.sync_api import sync_playwright
+    with sync_playwright() as p:
+        browser = p.chromium.launch(headless=True)
+        ctx = browser.new_context(
+            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36",
+            locale="en-US",
+        )
+        page = ctx.new_page()
+        try:
+            page.goto(url, wait_until="domcontentloaded", timeout=timeout * 1000)
+            page.wait_for_timeout(2000)  # let JS render
+            content = page.content()
+        finally:
+            ctx.close()
+            browser.close()
+    return content
+
+
 # --- platform detectors ------------------------------------------------------
 def _detect(url: str) -> Optional[str]:
     h = _host(url)
@@ -389,6 +409,17 @@ def _bilibili(url: str, timeout: int) -> dict:
                     "content": x.text, "final_url": api_url, "attempts": attempts}
     except Exception as e:
         attempts.append(_attempt("bilibili", "api", False, 0, "", f"{type(e).__name__}"))
+    # Fallback: Playwright (bilibili needs JS to generate buvid3 cookie)
+    try:
+        content = _pw_get(url, timeout=timeout)
+        ok = len(content) > 1000
+        attempts.append(_attempt("bilibili", "playwright", ok, 200, content[:200],
+                                 "html" if ok else "empty"))
+        if ok:
+            return {"platform": "bilibili", "ok": True, "route": "playwright",
+                    "content": content, "final_url": url, "attempts": attempts}
+    except Exception as e2:
+        attempts.append(_attempt("bilibili", "playwright", False, 0, "", f"{type(e2).__name__}"))
     return {"platform": "bilibili", "ok": False, "route": None, "content": "",
             "final_url": url, "attempts": attempts}
 
@@ -505,6 +536,17 @@ def _linkedin(url: str, timeout: int) -> dict:
                     "content": x.text, "final_url": url, "attempts": attempts}
     except Exception as e2:
         attempts.append(_attempt("linkedin", "html", False, 0, "", f"{type(e2).__name__}"))
+    # Fallback: Playwright (linkedin needs browser for JS rendering)
+    try:
+        content = _pw_get(url, timeout=timeout)
+        ok = len(content) > 1000 and "999" not in content[:500]
+        attempts.append(_attempt("linkedin", "playwright", ok, 200, content[:200],
+                                 "html" if ok else "empty-or-blocked"))
+        if ok:
+            return {"platform": "linkedin", "ok": True, "route": "playwright",
+                    "content": content, "final_url": url, "attempts": attempts}
+    except Exception as e3:
+        attempts.append(_attempt("linkedin", "playwright", False, 0, "", f"{type(e3).__name__}"))
     return {"platform": "linkedin", "ok": False, "route": None, "content": "",
             "final_url": url, "attempts": attempts}
 
