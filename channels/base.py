@@ -58,7 +58,7 @@ class Channel(ABC):
                     break
         return candidates
 
-    def check(self, config=None) -> Tuple[str, str]:
+    def check(self, config=None) -> bool:
         """
         Check if this channel's upstream tool is available.
         Returns (status, message) where status is 'ok'/'warn'/'off'/'error'.

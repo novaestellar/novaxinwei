@@ -174,7 +174,7 @@ class SessionPool:
         host = _host_of(url)
         headers = {
             "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-            "Accept-Language": "ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7",
+            "Accept-Language": "en-US,en;q=0.9",
         }
         if referer:
             headers["Referer"] = referer

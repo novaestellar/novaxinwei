@@ -1,4 +1,4 @@
-"""NovaXinWei channel registry — 14 platforms.
+"""NovaXinWei channel registry — 15 platforms.
 
 Channel contract:
     can_handle(url) → bool

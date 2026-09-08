@@ -86,7 +86,7 @@ def _npm_install(dest: str) -> bool:
         # second npm install into the same dir.
         if os.path.exists(lock) and time.time() - os.path.getmtime(lock) < 900:
             return _has_playwright_module(dest)
-        open(lock, "w").close()
+        with open(lock, "w"): pass
         subprocess.run(
             ["npm", "install", "--silent", "--no-audit", "--no-fund"],
             cwd=dest, env=env, capture_output=True, text=True, timeout=900, check=False,
