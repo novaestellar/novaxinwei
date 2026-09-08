@@ -141,6 +141,19 @@ def _reddit(url: str, timeout: int) -> dict:
     except Exception as e:
         attempts.append(_attempt("reddit", "json", False, 0, "", f"{type(e).__name__}"))
 
+    # Route 3: oembed (public posts only)
+    try:
+        oembed_url = f"https://www.reddit.com/oembed?url={url}"
+        x = _cffi_get(oembed_url, timeout=timeout)
+        ok = x.status_code == 200 and '"html"' in x.text
+        attempts.append(_attempt("reddit", "oembed", ok, x.status_code, x.text,
+                                 "html" if ok else f"status={x.status_code}"))
+        if ok:
+            return {"platform": "reddit", "ok": True, "route": "oembed",
+                    "content": x.text, "final_url": oembed_url, "attempts": attempts}
+    except Exception as e:
+        attempts.append(_attempt("reddit", "oembed", False, 0, "", f"{type(e).__name__}"))
+
     return {"platform": "reddit", "ok": False, "route": None, "content": "",
             "final_url": url, "attempts": attempts}
 
@@ -274,19 +287,21 @@ def _threads(url: str, timeout: int) -> dict:
             note = (f"status={x.status_code}" if x.status_code != 200
                     else ("no-code-marker" if not code_pos else "no-video_versions"))
             attempts.append(_attempt("threads", "inline-json", False, x.status_code, raw, note))
-            # Fallback: oembed for text/image posts
+            # Fallback: extract text/meta from HTML
             try:
-                ourl = f"https://publish.twitter.com/oembed?url={url}&omit_script=1"
-                xo = _cffi_get(ourl, timeout=timeout)
-                d = xo.json() if xo.status_code == 200 else {}
-                ok = bool(d.get("html"))
-                attempts.append(_attempt("threads", "oembed", ok, xo.status_code, xo.text,
-                                         "has-html" if ok else f"status={xo.status_code}"))
-                if ok:
-                    return {"platform": "threads", "ok": True, "route": "oembed",
-                            "content": d["html"], "final_url": url, "attempts": attempts}
+                title_m = re.search(r'<title[^>]*>([^<]+)</title>', x.text)
+                desc_m = re.search(r'<meta[^>]*name="description"[^>]*content="([^"]+)"', x.text)
+                if title_m or desc_m:
+                    content = json.dumps({
+                        "post_code": code,
+                        "title": title_m.group(1).strip() if title_m else "",
+                        "description": desc_m.group(1).strip() if desc_m else ""
+                    }, ensure_ascii=False)
+                    attempts.append(_attempt("threads", "meta", True, x.status_code, content, "meta-tags"))
+                    return {"platform": "threads", "ok": True, "route": "meta",
+                            "content": content, "final_url": url, "attempts": attempts}
             except Exception as e2:
-                attempts.append(_attempt("threads", "oembed", False, 0, "", f"{type(e2).__name__}"))
+                attempts.append(_attempt("threads", "meta", False, 0, "", f"{type(e2).__name__}"))
             return {"platform": "threads", "ok": False, "route": None, "content": "",
                     "final_url": url, "attempts": attempts}
         best = min(blocks, key=lambda b: min(abs(b.start() - c) for c in code_pos))
@@ -334,6 +349,17 @@ def _xiaohongshu(url: str, timeout: int) -> dict:
                     "content": x.text, "final_url": api_url, "attempts": attempts}
     except Exception as e:
         attempts.append(_attempt("xiaohongshu", "mobile-api", False, 0, "", f"{type(e).__name__}"))
+    # Fallback: direct HTML scrape
+    try:
+        x = _cffi_get(url, impersonate="chrome", timeout=timeout)
+        ok = x.status_code == 200 and len(x.text) > 1000
+        attempts.append(_attempt("xiaohongshu", "html", ok, x.status_code, x.text[:200],
+                                 "html" if ok else f"status={x.status_code}"))
+        if ok:
+            return {"platform": "xiaohongshu", "ok": True, "route": "html",
+                    "content": x.text, "final_url": url, "attempts": attempts}
+    except Exception as e2:
+        attempts.append(_attempt("xiaohongshu", "html", False, 0, "", f"{type(e2).__name__}"))
     return {"platform": "xiaohongshu", "ok": False, "route": None, "content": "",
             "final_url": url, "attempts": attempts}
 
@@ -354,7 +380,7 @@ def _bilibili(url: str, timeout: int) -> dict:
     bvid = m.group(1)
     api_url = f"https://api.bilibili.com/x/web-interface/view?bvid={bvid}"
     try:
-        x = _cffi_get(api_url, timeout=timeout)
+        x = _cffi_get(api_url, timeout=timeout, impersonate="chrome", headers={"Referer": "https://www.bilibili.com/", "Cookie": "buvid3=test"})
         ok = x.status_code == 200 and '"data"' in x.text
         attempts.append(_attempt("bilibili", "api", ok, x.status_code, x.text,
                                  "json" if ok else f"status={x.status_code}"))
@@ -394,8 +420,9 @@ def _v2ex(url: str, timeout: int) -> dict:
 
 # --- facebook ----------------------------------------------------------------
 def _facebook(url: str, timeout: int) -> dict:
-    """Facebook — try oembed for public posts."""
+    """Facebook — try oembed then direct HTML scrape."""
     attempts: list[dict] = []
+    # 1) oembed
     oembed_url = f"https://www.facebook.com/plugins/post/oembed?url={url}"
     try:
         x = _cffi_get(oembed_url, timeout=timeout)
@@ -407,13 +434,24 @@ def _facebook(url: str, timeout: int) -> dict:
                     "content": x.text, "final_url": oembed_url, "attempts": attempts}
     except Exception as e:
         attempts.append(_attempt("facebook", "oembed", False, 0, "", f"{type(e).__name__}"))
+    # 2) direct HTML
+    try:
+        x = _cffi_get(url, timeout=timeout)
+        ok = x.status_code == 200 and len(x.text) > 1000
+        attempts.append(_attempt("facebook", "html", ok, x.status_code, x.text[:200],
+                                 "html" if ok else f"status={x.status_code}"))
+        if ok:
+            return {"platform": "facebook", "ok": True, "route": "html",
+                    "content": x.text, "final_url": url, "attempts": attempts}
+    except Exception as e2:
+        attempts.append(_attempt("facebook", "html", False, 0, "", f"{type(e2).__name__}"))
     return {"platform": "facebook", "ok": False, "route": None, "content": "",
             "final_url": url, "attempts": attempts}
 
 
 # --- instagram ---------------------------------------------------------------
 def _instagram(url: str, timeout: int) -> dict:
-    """Instagram — try oembed for public posts (no auth needed)."""
+    """Instagram — try oembed then direct scrape."""
     attempts: list[dict] = []
     oembed_url = f"https://api.instagram.com/oembed/?url={url}"
     try:
@@ -426,13 +464,24 @@ def _instagram(url: str, timeout: int) -> dict:
                     "content": x.text, "final_url": oembed_url, "attempts": attempts}
     except Exception as e:
         attempts.append(_attempt("instagram", "oembed", False, 0, "", f"{type(e).__name__}"))
+    # Fallback: direct HTML
+    try:
+        x = _cffi_get(url, timeout=timeout)
+        ok = x.status_code == 200 and len(x.text) > 1000
+        attempts.append(_attempt("instagram", "html", ok, x.status_code, x.text[:200],
+                                 "html" if ok else f"status={x.status_code}"))
+        if ok:
+            return {"platform": "instagram", "ok": True, "route": "html",
+                    "content": x.text, "final_url": url, "attempts": attempts}
+    except Exception as e2:
+        attempts.append(_attempt("instagram", "html", False, 0, "", f"{type(e2).__name__}"))
     return {"platform": "instagram", "ok": False, "route": None, "content": "",
             "final_url": url, "attempts": attempts}
 
 
 # --- linkedin ----------------------------------------------------------------
 def _linkedin(url: str, timeout: int) -> dict:
-    """LinkedIn — try oembed for public posts."""
+    """LinkedIn — try oembed then direct scrape with chrome."""
     attempts: list[dict] = []
     oembed_url = f"https://www.linkedin.com/noashare?url={url}"
     try:
@@ -445,6 +494,17 @@ def _linkedin(url: str, timeout: int) -> dict:
                     "content": x.text, "final_url": oembed_url, "attempts": attempts}
     except Exception as e:
         attempts.append(_attempt("linkedin", "oembed", False, 0, "", f"{type(e).__name__}"))
+    # Fallback: direct HTML with chrome impersonation
+    try:
+        x = _cffi_get(url, impersonate="chrome", timeout=timeout)
+        ok = x.status_code == 200 and len(x.text) > 1000
+        attempts.append(_attempt("linkedin", "html", ok, x.status_code, x.text[:200],
+                                 "html" if ok else f"status={x.status_code}"))
+        if ok:
+            return {"platform": "linkedin", "ok": True, "route": "html",
+                    "content": x.text, "final_url": url, "attempts": attempts}
+    except Exception as e2:
+        attempts.append(_attempt("linkedin", "html", False, 0, "", f"{type(e2).__name__}"))
     return {"platform": "linkedin", "ok": False, "route": None, "content": "",
             "final_url": url, "attempts": attempts}
 
