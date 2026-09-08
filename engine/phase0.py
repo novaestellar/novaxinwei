@@ -153,6 +153,23 @@ def _x(url: str, timeout: int) -> dict:
     attempts: list[dict] = []
     m = _TWEET_ID_RE.search(url)
 
+    if not m:
+        # Profile URL — try oembed
+        try:
+            ourl = f"https://publish.twitter.com/oembed?url={url}&omit_script=1"
+            x = _cffi_get(ourl, timeout=timeout)
+            d = x.json() if x.status_code == 200 else {}
+            ok = bool(d.get("html"))
+            attempts.append(_attempt("x", "oembed-profile", ok, x.status_code, x.text,
+                                     "has-html" if ok else f"status={x.status_code}"))
+            if ok:
+                return {"platform": "x", "ok": True, "route": "oembed-profile",
+                        "content": d["html"], "final_url": url, "attempts": attempts}
+        except Exception as e:
+            attempts.append(_attempt("x", "oembed-profile", False, 0, "", f"{type(e).__name__}"))
+        return {"platform": "x", "ok": False, "route": None, "content": "",
+                "final_url": url, "attempts": attempts}
+
     if m:
         tid = m.group(1)
         try:
@@ -257,6 +274,19 @@ def _threads(url: str, timeout: int) -> dict:
             note = (f"status={x.status_code}" if x.status_code != 200
                     else ("no-code-marker" if not code_pos else "no-video_versions"))
             attempts.append(_attempt("threads", "inline-json", False, x.status_code, raw, note))
+            # Fallback: oembed for text/image posts
+            try:
+                ourl = f"https://publish.twitter.com/oembed?url={url}&omit_script=1"
+                xo = _cffi_get(ourl, timeout=timeout)
+                d = xo.json() if xo.status_code == 200 else {}
+                ok = bool(d.get("html"))
+                attempts.append(_attempt("threads", "oembed", ok, xo.status_code, xo.text,
+                                         "has-html" if ok else f"status={xo.status_code}"))
+                if ok:
+                    return {"platform": "threads", "ok": True, "route": "oembed",
+                            "content": d["html"], "final_url": url, "attempts": attempts}
+            except Exception as e2:
+                attempts.append(_attempt("threads", "oembed", False, 0, "", f"{type(e2).__name__}"))
             return {"platform": "threads", "ok": False, "route": None, "content": "",
                     "final_url": url, "attempts": attempts}
         best = min(blocks, key=lambda b: min(abs(b.start() - c) for c in code_pos))
@@ -491,6 +521,9 @@ def _segmentfault(url: str, timeout: int) -> dict:
 def _so_gitee(url: str, timeout: int) -> dict:
     """so.gitee.com — Gitee code search."""
     attempts: list[dict] = []
+    # Root URL redirects to search
+    if url.rstrip("/") in ("https://so.gitee.com", "https://so.gitee.com/"):
+        url = "https://so.gitee.com/search?q=python"
     try:
         x = _cffi_get(url, timeout=timeout)
         ok = x.status_code == 200 and len(x.text) > 500
