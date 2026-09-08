@@ -20,6 +20,7 @@ from .nodeloc import NodeLocChannel
 from .pojie import PoJieChannel
 from .reddit import RedditChannel
 from .rss import RSSChannel
+from .threads import ThreadsChannel
 from .twitter import TwitterChannel
 from .v2ex import V2EXChannel
 from .web import WebChannel
@@ -27,6 +28,7 @@ from .xiaohongshu import XiaoHongShuChannel
 from .youtube import YouTubeChannel
 
 ALL_CHANNELS: List[Channel] = [
+    ThreadsChannel(),
     TwitterChannel(),
     YouTubeChannel(),
     RedditChannel(),
@@ -62,7 +64,7 @@ def fetch_parallel(urls: list[str], timeout: int = 15, max_workers: int = 5) -> 
 
     Returns: {url: {"ok": bool, "content": str, "error": str|None}}
     """
-    from .engine.phase0 import route as phase0_route
+    from novaxinwei.engine.phase0 import route as phase0_route
     results = {}
 
     def _fetch_one(url: str) -> tuple[str, dict]:

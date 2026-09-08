@@ -41,16 +41,25 @@ from urllib.parse import urlsplit
 # --- low-level helpers -------------------------------------------------------
 def _cffi_get(url: str, *, impersonate: str = "safari", timeout: int = 15):
     from curl_cffi import requests as r  # lazy: engine works even if missing
-    return r.get(
-        url,
-        impersonate=impersonate,  # type: ignore[arg-type]
-        timeout=timeout,
-        headers={
-            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-            "Accept-Language": "en-US,en;q=0.9,ko;q=0.8",
-        },
-        allow_redirects=True,
-    )
+    import time as _time
+    last_err = None
+    for _attempt in range(3):
+        try:
+            return r.get(
+                url,
+                impersonate=impersonate,  # type: ignore[arg-type]
+                timeout=timeout,
+                headers={
+                    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+                    "Accept-Language": "en-US,en;q=0.9,ko;q=0.8",
+                },
+                allow_redirects=True,
+            )
+        except Exception as e:
+            last_err = e
+            if _attempt < 2:
+                _time.sleep(0.5 * (_attempt + 1))
+    raise last_err  # type: ignore[misc]
 
 
 def _host(url: str) -> str:
