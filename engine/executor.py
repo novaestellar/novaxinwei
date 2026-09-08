@@ -144,7 +144,7 @@ def _module_available(name: str) -> bool:
 
 
 def _auto_install(pkg: str) -> bool:
-    if os.environ.get("INSANE_AUTO_INSTALL", "").strip() not in ("1", "true", "yes"):
+    if os.environ.get("NOVAXINWEI_AUTO_INSTALL", "").strip() not in ("1", "true", "yes"):
         return False
     try:
         subprocess.run([sys.executable, "-m", "pip", "install", pkg, "-q"],
@@ -202,7 +202,7 @@ def _run_protocol_stealth(
         return att, stdout
     att.elapsed_s = round(time.time() - t0, 3)
     if not att.error:
-        att.error = "nodriver/patchright not installed (pip install nodriver, or INSANE_AUTO_INSTALL=1)"
+        att.error = "nodriver/patchright not installed (pip install nodriver, or NOVAXINWEI_AUTO_INSTALL=1)"
     att.verdict = Verdict.UNKNOWN.value
     return att, ""
 

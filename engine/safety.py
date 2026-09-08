@@ -8,7 +8,7 @@ the cloud metadata endpoint (169.254.169.254) to exfiltrate internal data.
 
 This module provides a pure, deterministic classifier and a redirect resolver.
 Default-deny for private/internal targets; opt in with allow_private=True
-(env INSANE_ALLOW_PRIVATE=1) for local testing.
+(env NOVAXINWEI_ALLOW_PRIVATE=1) for local testing.
 """
 from __future__ import annotations
 
@@ -22,7 +22,7 @@ DEFAULT_MAX_REDIRECTS = 10
 
 
 def allow_private_default() -> bool:
-    return os.environ.get("INSANE_ALLOW_PRIVATE", "") in ("1", "true", "yes")
+    return os.environ.get("NOVAXINWEI_ALLOW_PRIVATE", "") in ("1", "true", "yes")
 
 
 def _ip_blocked(ip_str: str) -> bool:

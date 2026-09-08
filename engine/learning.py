@@ -27,8 +27,8 @@ from datetime import datetime, timezone, timedelta
 from typing import Optional
 from urllib.parse import urlsplit
 
-TTL_DAYS = int(os.environ.get("INSANE_LEARN_TTL_DAYS", "30"))
-MAX_ENTRIES = int(os.environ.get("INSANE_LEARN_MAX", "500"))
+TTL_DAYS = int(os.environ.get("NOVAXINWEI_LEARN_TTL_DAYS", "30"))
+MAX_ENTRIES = int(os.environ.get("NOVAXINWEI_LEARN_MAX", "500"))
 EVICT_AFTER_FAILS = 2
 
 # stop_reason values that mean the access ROUTE genuinely failed (→ strike).
@@ -38,11 +38,11 @@ PENALIZE_REASONS = frozenset({"exhausted", "challenge", "blocked"})
 
 
 def enabled() -> bool:
-    return os.environ.get("INSANE_LEARN", "1") not in ("0", "false", "no")
+    return os.environ.get("NOVAXINWEI_LEARN", "1") not in ("0", "false", "no")
 
 
 def default_path() -> str:
-    p = os.environ.get("INSANE_LEARNED_PATH")
+    p = os.environ.get("NOVAXINWEI_LEARNED_PATH")
     if p:
         return p
     return os.path.join(os.path.expanduser("~"), ".novaxinwei", "learned.json")

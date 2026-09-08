@@ -45,7 +45,7 @@ def search_x(
     if not query:
         raise XSearchError("query must not be blank")
     if use_xai is None:
-        use_xai = os.environ.get("INSANE_SEARCH_XAI", "auto").lower() not in {"0", "false", "off", "no"}
+        use_xai = os.environ.get("NOVAXINWEI_SEARCH_XAI", "auto").lower() not in {"0", "false", "off", "no"}
     credential = _resolve_xai_credential() if use_xai else None
     discovered: list[tuple[str, list[str]]] = []
     discovery_errors: dict[str, str] = {}

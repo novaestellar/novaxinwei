@@ -780,7 +780,7 @@ def fetch(
 
     The store is a bounded, self-pruning JSON file; any error in it is swallowed
     so learning can never break a fetch. Disable per-call with
-    ``enable_learning=False`` or globally with ``INSANE_LEARN=0``.
+    ``enable_learning=False`` or globally with ``NOVAXINWEI_LEARN=0``.
 
     ``enable_extraction`` (default True) turns on content-rescue extraction:
     PDF bodies come back as pypdf-extracted text, and thin SPA shells fall back
@@ -878,8 +878,8 @@ def _fetch_core(
     best_suspect: Optional[tuple] = None   # (resp, attempt)
     profile_used: Optional[str] = None
 
-    _jmin = int(os.environ.get("INSANE_JITTER_MS_MIN", "150"))
-    _jmax = int(os.environ.get("INSANE_JITTER_MS_MAX", "400"))
+    _jmin = int(os.environ.get("NOVAXINWEI_JITTER_MS_MIN", "150"))
+    _jmax = int(os.environ.get("NOVAXINWEI_JITTER_MS_MAX", "400"))
 
     def _jitter():
         time.sleep(random.uniform(_jmin / 1000.0, _jmax / 1000.0))

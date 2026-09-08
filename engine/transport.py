@@ -253,12 +253,12 @@ class SessionPool:
             self._entries.clear()
 
 
-# Process-wide pool. Disable via INSANE_NO_SESSION_POOL=1 (one-shot mode).
+# Process-wide pool. Disable via NOVAXINWEI_NO_SESSION_POOL=1 (one-shot mode).
 POOL = SessionPool()
 
 
 def pool_enabled() -> bool:
-    return os.environ.get("INSANE_NO_SESSION_POOL", "") not in ("1", "true", "yes")
+    return os.environ.get("NOVAXINWEI_NO_SESSION_POOL", "") not in ("1", "true", "yes")
 
 
 def _retry_after_seconds(resp) -> Optional[float]:

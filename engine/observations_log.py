@@ -4,7 +4,7 @@ Route learning remains exclusively in ``learning.py``. This module only
 records outcomes to ``observations/fetch-YYYY-MM-DD.jsonl`` so repeated
 cross-site evidence can be reviewed before changing WAF profiles.
 
-Env override: ``INSANE_OBSERVATIONS_DIR``.
+Env override: ``NOVAXINWEI_OBSERVATIONS_DIR``.
 Logging is best-effort and never changes a fetch outcome.
 """
 from __future__ import annotations
@@ -21,7 +21,7 @@ _SKILL_DIR = Path(__file__).resolve().parent.parent
 
 
 def _obs_dir() -> Path:
-    override = os.environ.get("INSANE_OBSERVATIONS_DIR")
+    override = os.environ.get("NOVAXINWEI_OBSERVATIONS_DIR")
     return Path(override) if override else _SKILL_DIR / "observations"
 
 

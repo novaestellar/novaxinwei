@@ -16,7 +16,7 @@ python3 -m engine.x_search "{검색어}" --limit 10
 3. **교차 병합** — 한 공급자가 결과 상한을 독점하지 않도록 URL을 교차 선택
 4. **tweet-result 재검증** — 원문·작성자·시각·반응 수를 다시 가져와 최종 근거로 사용
 
-xAI가 없거나 실패해도 무료 검색으로 계속된다. 유료 경로를 명시적으로 끄려면 `--free-only` 또는 `INSANE_SEARCH_XAI=off`를 사용한다. 결과의 `discovery_sources`, `degraded_reason`, `discovery_errors`, `rejected_urls`, 각 post의 `discovered_by`가 provenance를 제공한다.
+xAI가 없거나 실패해도 무료 검색으로 계속된다. 유료 경로를 명시적으로 끄려면 `--free-only` 또는 `NOVAXINWEI_SEARCH_XAI=off`를 사용한다. 결과의 `discovery_sources`, `degraded_reason`, `discovery_errors`, `rejected_urls`, 각 post의 `discovered_by`가 provenance를 제공한다.
 
 > Grok Build를 호출하는 구조가 아니다. X 검색에는 빠른 `grok-4.20-0309-non-reasoning`과 xAI 서버사이드 `x_search`를 사용하며, 핵심 기능은 모델보다 검색 도구다.
 
