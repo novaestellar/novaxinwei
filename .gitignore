@@ -12,3 +12,7 @@ build/
 .env.local
 node_modules/
 package-lock.json
+
+# Runtime data
+observations/
+*.jsonl
