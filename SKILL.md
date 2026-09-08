@@ -1,7 +1,7 @@
 ---
 name: novaxinwei
-version: 1.0.0
-description: "NovaXinWei (新信微) — web recon with WAF bypass, parallel fetch, dork databases, and 11 social platform channels"
+version: 1.1.0
+description: "NovaXinWei (新信微) — web recon with WAF bypass, parallel fetch, dork databases, and 15 social platform channels"
 triggers:
   - novaxinwei
   - web recon
@@ -15,10 +15,14 @@ triggers:
   - bilibili
   - v2ex
   - social media fetch
+  - threads
+  - nodseek
+  - nodloc
+  - pojie
 capabilities:
   - WAF-bypass fetch chain (curl_cffi TLS impersonation + Playwright fallback)
-  - 10 Phase 0 API routes (Reddit, X, YouTube, Threads, XHS, Bilibili, V2EX, Facebook, Instagram, LinkedIn)
-  - 11 social platform channels
+  - 15 Phase 0 API routes (Reddit, YouTube, V2EX, Cnblogs, CSDN, Gitee, Codeberg, X/Twitter, Threads, Xiaohongshu, Bilibili, NodeSeek, NodeLoc, PoJie, Web)
+  - 15 social platform channels
   - Shodan + GitHub dork databases
   - Parallel fetch (ThreadPoolExecutor)
 dependencies:
@@ -57,12 +61,12 @@ python -m novaxinwei dorks github password
 ## Capabilities
 
 ### 1. WAF-Bypass Fetch Chain
-- Phase 0: Official API routes (10 platforms)
+- Phase 0: Official API routes (15 platforms)
 - Phase 1: URL transforms (mobile, JSON, RSS)
-- Phase 2: TLS impersonation (curl_cffi)
+- Phase 2: TLS impersonation (curl_cffi, 3x retry)
 - Phase 3: Playwright headless fallback
 
-### 2. Social Platform Channels (11)
+### 2. Social Platform Channels (15)
 | Platform | Backend | Tier |
 |----------|---------|------|
 | Twitter/X | curl | 0 |
@@ -74,6 +78,10 @@ python -m novaxinwei dorks github password
 | Xiaohongshu | curl | 1 |
 | LinkedIn | curl | 1 |
 | V2EX | curl | 0 |
+| Threads | oembed | 0 |
+| NodeSeek | curl | 0 |
+| NodeLoc | curl | 0 |
+| PoJie | curl | 0 |
 | RSS | curl | 0 |
 | Web (catch-all) | curl | 0 |
 
