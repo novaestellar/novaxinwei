@@ -21,7 +21,7 @@ triggers:
   - pojie
 capabilities:
   - WAF-bypass fetch chain (curl_cffi TLS impersonation + Playwright fallback)
-  - 15 Phase 0 API routes (Reddit, YouTube, V2EX, Cnblogs, CSDN, Gitee, Codeberg, X/Twitter, Threads, Xiaohongshu, Bilibili, NodeSeek, NodeLoc, PoJie, Web)
+  - 15 Phase 0 API routes (Reddit, X/Twitter, YouTube, Threads, Xiaohongshu, Bilibili, V2EX, Facebook, Instagram, LinkedIn, Cnblogs, CSDN, SegmentFault, SoGitee, Codeberg)
   - 15 social platform channels
   - Shodan + GitHub dork databases
   - Parallel fetch (ThreadPoolExecutor)

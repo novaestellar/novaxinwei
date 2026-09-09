@@ -25,7 +25,7 @@ NovaXinWei 是一个统一的网络侦察引擎，整合了 **4大核心能力**
 |------|------|
 | 🛡️ WAF绕过抓取链 | curl_cffi TLS指纹模拟 + Playwright无头浏览器回退 |
 | 🌐 15平台API路由 | Reddit、YouTube、X/Twitter、Threads、小红书、B站、V2EX、Facebook、Instagram、LinkedIn、博客园、CSDN、SegmentFault、SoGitee、Codeberg |
-| 🔍 Dork数据库 | Shodan 126模式 + GitHub 234模式，10大分类 |
+|| 🔍 Dork数据库 | Shodan 126+模式 + GitHub 234+模式,多分类 |
 | ⚡ 并行抓取 | ThreadPoolExecutor，可配置工作线程数 |
 | 🧠 自学习系统 | 4层反馈闭环，自动记录成功模式 |
 | 🔒 内容安全 | 6层提示注入检测 + URL掩码保护 |
@@ -225,7 +225,7 @@ python -m novaxinwei check reddit
 
 ### 3. Dork数据库
 
-#### Shodan Dorks (126模式, 7分类)
+#### Shodan Dorks (126+模式, 7分类)
 
 | 分类 | 模式数 | 说明 |
 |------|--------|------|
@@ -237,7 +237,7 @@ python -m novaxinwei check reddit
 | Network | 16 | VPN、防火墙、代理 |
 | Security | 30 | 漏洞、暴露服务 |
 
-#### GitHub Dorks (234模式, 10分类)
+#### GitHub Dorks (234+模式, 10分类)
 
 | 分类 | 模式数 | 说明 |
 |------|--------|------|
@@ -300,7 +300,7 @@ results = fetch_parallel(["url1", "url2", "url3"], max_workers=5)
 
 ## 🔗 与Novahaku协同
 
-NovaXinWei (新信微) 与 [Novahaku (刃)](https://github.com/novaestellar/novahaku) 构成完整的 **侦察→利用** 攻击链。新信微负责主动网络侦察与数据采集,Novahaku负责漏洞发现、利用与报告。两者均为 Hermes Agent 技能,共享 `engagement/` 目录进行数据传递。
+NovaXinWei (新信微) 与 [Novahaku (刃)](https://github.com/novaestellar/novahaku) 构成完整的 **侦察→利用** 攻击链。新信微负责主动网络侦察与数据采集,Novahaku负责漏洞发现、利用与报告。两者均为 Hermes Agent 技能,通过 Hermes session context 传递侦察数据。
 
 ---
 
@@ -339,15 +339,15 @@ NovaXinWei (新信微) 与 [Novahaku (刃)](https://github.com/novaestellar/nova
   │   - URL变换(移动端、JSON、RSS)
   │
   ├─ 1c. Dork数据库查询
-  │   - Shodan 126模式(Web Server/DB/IoT/Cloud/Industrial/Network/Security)
-  │   - GitHub 234模式(Credentials/Config/Keys/CI-CD/Cloud等10分类)
+  │   - Shodan 126+模式(Web Server/DB/IoT/Cloud/Industrial/Network/Security)
+  │   - GitHub 234+模式(Credentials/Config/Keys/CI-CD/Cloud等10分类)
   │
   ├─ 1d. 并行批量抓取
   │   - ThreadPoolExecutor可配置工作线程
   │   - 自学习系统记录成功模式,下次自动优化
   │
   ▼
-  输出: JSON格式侦察报告 (engagement/<target>/recon.json)
+  输出: JSON格式侦察报告 (stdout JSON → Hermes session context)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   │
   ▼
@@ -356,7 +356,7 @@ NovaXinWei (新信微) 与 [Novahaku (刃)](https://github.com/novaestellar/nova
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   │
   ├─ 2a. 接收侦察数据
-  │   - 读取 engagement/<target>/recon.json
+  │   - 接收 novaxinwei 侦察输出 (Hermes session context)
   │   - 解析: 子域名、端口、技术栈、WAF类型、暴露面
   │
   ├─ 2b. 被动侦察补充 (OSINT)
@@ -383,9 +383,9 @@ NovaXinWei (新信微) 与 [Novahaku (刃)](https://github.com/novaestellar/nova
   │
   ▼
 阶段3: 结果交付用户
-  - engagement/<target>/report.md (完整报告)
-  - engagement/<target>/poc/ (PoC代码)
-  - engagement/<target>/recon.json (侦察原始数据)
+  - 漏洞报告 (Hermes session context)
+  - PoC代码 (stdout)
+  - 侦察数据 (Hermes session context)
 ```
 
 ---
@@ -415,7 +415,7 @@ NovaXinWei (新信微) 与 [Novahaku (刃)](https://github.com/novaestellar/nova
 
 | 约定 | 说明 |
 |------|------|
-| **数据传递格式** | JSON,文件存放于 `engagement/<target>/` 目录 |
+- JSON格式,通过 Hermes session context 传递 |
 | **目标命名** | 统一使用目标域名作为根目录名 |
 | **上下文传递** | 通过 Hermes skill chaining,用户意图自动路由 |
 | **互不侵入** | 新信微不写exploit代码,刃不写爬虫代码 |
@@ -442,7 +442,7 @@ NovaXinWei (新信微) 与 [Novahaku (刃)](https://github.com/novaestellar/nova
 
 ## 📚 参考文档
 
-`references/` 目录包含21个详细参考文档：
+`references/` 目录包含20个详细参考文档:
 
 | 文档 | 说明 |
 |------|------|
