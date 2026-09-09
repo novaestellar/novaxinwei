@@ -114,3 +114,26 @@ When user asks to:
 ## No-Site-Name Rule
 The engine never stores or logs site-specific data. All site specifics go through
 runtime hints or observations, never to code. See `engine/bias_check.py`.
+
+## 🔗 Synergy with Novahaku
+
+NovaXinWei pairs with [Novahaku](https://github.com/novaestellar/novahaku) (security research skill) to form a complete **recon → exploit** chain.
+
+**Workflow:**
+```
+User: "test example.com"
+  ↓
+1. NovaXinWei — Reconnaissance
+   - 15-channel async fetch + WAF bypass
+   - Shodan/GitHub dork enumeration
+   - Tech stack fingerprinting
+   - Output: structured recon (stdout JSON)
+  ↓
+2. Novahaku — Exploitation
+   - Receives recon context via Hermes intent routing
+   - Loads matching Hunt Playbooks (54 categories)
+   - 63 attack vectors + 14-module web scanner
+   - EDR bypass / Pwn Chain / Request Refactoring
+```
+
+**Design:** Both skills are independent — NovaXinWei works alone for recon, Novahaku works alone for vuln testing. Hermes routes intent to load both when the user asks for end-to-end testing. No code-level coupling; data flows through Hermes session context.
