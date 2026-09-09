@@ -300,24 +300,127 @@ results = fetch_parallel(["url1", "url2", "url3"], max_workers=5)
 
 ## 🔗 与Novahaku协同
 
-NovaXinWei 与 [Novahaku](https://github.com/novaestellar/novahaku) 构成完整攻击链：
+NovaXinWei (新信微) 与 [Novahaku (刃)](https://github.com/novaestellar/novahaku) 构成完整的 **侦察→利用** 攻击链。新信微负责主动网络侦察与数据采集,Novahaku负责漏洞发现、利用与报告。两者均为 Hermes Agent 技能,共享 `engagement/` 目录进行数据传递。
+
+---
+
+### Novahaku 8大领域能力
+
+| # | 领域 | 说明 | 核心工具/输出 |
+|---|------|------|---------------|
+| 1 | **Web测试** | 14模块测试集(headers、exposed、cors、methods、admin、xss、sqli、ssrf、ssti、traversal、redirect、info、dirfuzz、https) + 竞态条件 + JWT分析/伪造/暴力破解 | `webtest.py`、`race_test.py`、`jwt_test.py`、48个payload参考 |
+| 2 | **提示工程** | 121项技术,7大分类(Boundary、Priming、Identity、Encoding、Multi-Provider、Iterative、Stream),4级锁定命令(basic 85%→triple 95%),AES-256-GCM加密Vault | `loader.py`、prompt-arsenal模板、method-reference |
+| 3 | **攻击框架(v41)** | v41文言攻击提示(古典中文),5个注入面分析,跨模型评估矩阵(8/8已验证),Hermes预填充集成 | `test-novahaku.py`、claude-config-bundle |
+| 4 | **重构引擎(Reframe)** | 48个触发词→安全措辞映射,SessionState持久化,输出合同(ROUTE/RESULT/CHANGED/VERIFY/NEXT),每模型人格锁定 | `reframe_cli.py`、prompt-arsenal、operations-plan |
+| 5 | **Windows逆向 + EDR绕过** | 反调试绕过(IsDebuggerPresent、NtQueryInformationProcess、RDTSC)、内联/IAT钩子、游戏安全(Tencent ACE、BattlEye、EAC)、x64dbg/IDA/Ghidra工作流; EDR/AV绕过: AMSI bypass(DLL patching、memory patching、.NET reflection)、ETW patching、User-mode hook detection + direct syscalls(Hell's Gate、SysWhispers、FreshyCalls)、Defender bypass、CrowdStrike/SentinelOne evasion | `windows-re.md`、反调试工作流、SysWhispers模板 |
+| 6 | **二进制利用(Pwn Chain)** | 栈溢出、格式化字符串、堆利用(UAF/DF/OF)、ret2libc/ret2csu/one_gadget、64位栈对齐(movaps fix); 内核pwn: kROP、SMEP/SMAP绕过、KASLR leak、modprobe_path; 工具链: pwntools + GEF/pwndbg + ROPgadget + one_gadget + libc-database | `pwn-chain.md`、pwntools脚本模板 |
+| 7 | **身份与人格** | Haku人格(优雅+锐利+尊重),558个few-shot示例,280个安全术语映射,5种情绪状态,10条反漂移规则 | `few-shots-primary.md`、persona定义 |
+| 8 | **OSINT与被动侦察** | 子域名枚举、端口扫描、技术栈指纹(Wappalyzer)、公开数据源(GitHub/Pastebin/Shodan/Censys/Greynoise)、CT日志分析、WHOIS/DNS查询、Credential泄露检查(HIBP、IntelX) | `offensive-osint/`、`osint-methodology/`、`email-domain-security/`、`cloud-saas-exposure/`、`identity-provider-recon/`、`org-attack-surface/` |
+
+---
+
+### 完整协同工作流: 侦察→利用全链路
 
 ```
-NovaXinWei (新信微)          Novahaku (刃)
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-侦察发现                     漏洞利用
-  ├─ 15平台路由               ├─ Web渗透测试
-  ├─ WAF绕过抓取              ├─ 提示工程
-  ├─ Dork数据库               ├─ 攻击框架
-  ├─ 并行抓取                 ├─ 逆向工程
-  └─ 内容安全                 └─ 请求重构
+用户: "全面测试 example.com"
+  │
+  ▼
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+阶段1: NovaXinWei (新信微) — 主动侦察
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  │
+  ├─ 1a. 平台路由侦察
+  │   - 15平台API路由 → 发现社交媒体/论坛/代码托管中的目标信息
+  │   - 内容安全检查 → 6层提示注入检测 + URL掩码保护
+  │
+  ├─ 1b. WAF绕过抓取
+  │   - curl_cffi TLS指纹模拟(Safari/Chrome/Edge/Firefox)
+  │   - Playwright无头浏览器回退
+  │   - URL变换(移动端、JSON、RSS)
+  │
+  ├─ 1c. Dork数据库查询
+  │   - Shodan 126模式(Web Server/DB/IoT/Cloud/Industrial/Network/Security)
+  │   - GitHub 234模式(Credentials/Config/Keys/CI-CD/Cloud等10分类)
+  │
+  ├─ 1d. 并行批量抓取
+  │   - ThreadPoolExecutor可配置工作线程
+  │   - 自学习系统记录成功模式,下次自动优化
+  │
+  ▼
+  输出: JSON格式侦察报告 (engagement/<target>/recon.json)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  │
+  ▼
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+阶段2: Novahaku (刃) — 漏洞发现 + 利用
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  │
+  ├─ 2a. 接收侦察数据
+  │   - 读取 engagement/<target>/recon.json
+  │   - 解析: 子域名、端口、技术栈、WAF类型、暴露面
+  │
+  ├─ 2b. 被动侦察补充 (OSINT)
+  │   - CT日志分析、WHOIS/DNS查询
+  │   - Credential泄露检查(HIBP、IntelX)
+  │   - 云暴露检测(S3 bucket、Azure、GCP)
+  │
+  ├─ 2c. Web漏洞测试
+  │   - 根据技术栈自动选择测试模块
+  │   - XSS/SQLi/SSRF/SSTI/IDOR/CSRF/RCE...
+  │   - JWT分析 + 竞态条件测试
+  │
+  ├─ 2d. 深度利用 (如需要)
+  │   - Windows逆向 + EDR绕过 (本地目标)
+  │   - Pwn Chain (二进制漏洞利用)
+  │   - 攻击框架v41 (AI系统测试)
+  │
+  ├─ 2e. 报告生成
+  │   - 结构化漏洞报告 + PoC代码
+  │   - 修复建议
+  │
+  ▼
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  │
+  ▼
+阶段3: 结果交付用户
+  - engagement/<target>/report.md (完整报告)
+  - engagement/<target>/poc/ (PoC代码)
+  - engagement/<target>/recon.json (侦察原始数据)
 ```
 
-**协同流程:**
-1. 新信微发现目标 → 抓取内容
-2. 新信微提取信息 → 传递给刃
-3. 刃执行渗透测试 → 发现漏洞
-4. 刃开发利用代码 → 完成攻击链
+---
+
+### 新信微频道输出 → 刃测试模块 映射表
+
+| 新信微输出数据 | 来源渠道/功能 | Novahaku接收模块 | 测试方向 |
+|----------------|--------------|------------------|----------|
+| **子域名列表** | Shodan Dorks + GitHub Dorks + crt.sh | OSINT被动侦察 | 子域名枚举→扩大攻击面 |
+| **端口/服务信息** | Shodan Dorks (126模式) | OSINT + Web测试 | 服务指纹→选择测试向量 |
+| **技术栈指纹** | WAF绕过抓取链(Wappalyzer) | Web测试(14模块) | 根据框架选择: Laravel审计/Supabase审计/Next.js审计 |
+| **WAF类型** | WAF检测器(waf_detector.py) | Web测试(WAF绕过) | 绕过策略: payload变形、编码绕过、时间盲注 |
+| **社交媒体内容** | 15平台API路由 | OSINT + 提示工程 | 信息泄露→社工素材、暴露凭据 |
+| **代码仓库数据** | GitHub Dorks (234模式) | Pwn Chain + 攻击框架 | 泄露私钥→SSH认证; 泄露密码→认证绕过; CI/CD→供应链攻击 |
+| **IoT/SCADA设备** | Shodan Dorks (IoT/Industrial分类) | Windows逆向 + EDR绕过 | 固件逆向、工控协议漏洞 |
+| **云配置** | Shodan Dorks (Cloud分类) + GitHub Dorks (Cloud) | OSINT(Cloud/SaaS Exposure) | S3桶、Azure Blob、GCP Storage暴露 |
+| **RSS/Feed数据** | RSS通用频道 | 重构引擎(Reframe) | 内容分析→检测AI生成内容、信息篡改 |
+| **论坛/社区情报** | V2EX/博客园/CSDN/SegmentFault | 提示工程 + 攻击框架 | 社区漏洞讨论→复制攻击向量、0day情报 |
+| **凭据泄露** | GitHub Dorks (Credentials/Keys分类) | OSINT(Credential Check) | 泄露密码/Token→认证测试、账户接管 |
+| **API端点** | Web抓取 + 平台路由 | Web测试(dirfuzz + methods) | API枚举→未授权访问、IDOR、GraphQL注入 |
+| **邮件域名信息** | Whois/DNS + Dorks | OSINT(Email Domain Security) | SPF/DKIM/DMARC配置→邮件欺骗 |
+| **内部文档** | GitHub Dorks (Internal/Backup分类) | 攻击框架 + Pwn Chain | 信息泄露→社工、凭证提取、内部网络拓扑 |
+
+---
+
+### 协同约定
+
+| 约定 | 说明 |
+|------|------|
+| **数据传递格式** | JSON,文件存放于 `engagement/<target>/` 目录 |
+| **目标命名** | 统一使用目标域名作为根目录名 |
+| **上下文传递** | 通过 Hermes skill chaining,用户意图自动路由 |
+| **互不侵入** | 新信微不写exploit代码,刃不写爬虫代码 |
+| **侦察输出结构** | `recon.json` 包含: `subdomains[]`、`ports[]`、`tech_stack[]`、`waf_type`、`platforms[]`、`dorks_hits[]`、`raw_content[]` |
+| **测试输入约定** | 读取 `recon.json` 的 `subdomains`、`ports`、`tech_stack` 字段,据此自动选择测试模块 |
 
 ---
 
