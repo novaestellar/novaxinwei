@@ -117,7 +117,7 @@ runtime hints or observations, never to code. See `engine/bias_check.py`.
 
 ## 🔗 Synergy with Novahaku
 
-NovaXinWei pairs with [Novahaku](https://github.com/novaestellar/novahaku) (security research skill) to form a complete **recon → exploit** chain.
+NovaXinWei pairs with Novahaku (security research skill, 12 domains, 73 modules) to form a complete recon → exploit chain. Novaxinwei handles active recon (WAF bypass, parallel fetch, dork queries). Novahaku handles vuln discovery, exploitation, and reporting.
 
 **Workflow:**
 ```

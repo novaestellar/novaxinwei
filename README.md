@@ -7,7 +7,7 @@
 > **统一网络侦察引擎** — WAF绕过 · 并行抓取 · Dork数据库 · 15平台路由 · 内容安全
 
 <p align="center">
-  <strong>SeaGull Security Lab</strong><br>
+  <strong>novalabs</strong><br>
   静观其变,以微知著 — 新信微
 </p>
 
@@ -304,7 +304,7 @@ NovaXinWei (新信微) 与 [Novahaku (刃)](https://github.com/novaestellar/nova
 
 ---
 
-### Novahaku 8大领域能力
+### Novahaku 12大领域能力
 
 | # | 领域 | 说明 | 核心工具/输出 |
 |---|------|------|---------------|
