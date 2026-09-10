@@ -300,7 +300,7 @@ results = fetch_parallel(["url1", "url2", "url3"], max_workers=5)
 
 ## 🔗 与Novahaku协同
 
-NovaXinWei (新信微) 与 [Novahaku (刃)](https://github.com/novaestellar/novahaku) 构成完整的 **侦察→利用** 攻击链。新信微负责主动网络侦察与数据采集,Novahaku负责漏洞发现、利用与报告。两者均为 Hermes Agent 技能,通过 Hermes session context 传递侦察数据。
+NovaXinWei (新信微) 与 [Novahaku](https://github.com/novaestellar/novahaku) 构成完整的 **侦察→利用** 攻击链。新信微负责主动网络侦察与数据采集,Novahaku负责漏洞发现、利用与报告。两者均为 Hermes Agent 技能,通过 Hermes session context 传递侦察数据。
 
 ---
 
@@ -352,7 +352,7 @@ NovaXinWei (新信微) 与 [Novahaku (刃)](https://github.com/novaestellar/nova
   │
   ▼
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-阶段2: Novahaku (刃) — 漏洞发现 + 利用
+阶段2: Novahaku — 漏洞发现 + 利用
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   │
   ├─ 2a. 接收侦察数据
@@ -390,7 +390,7 @@ NovaXinWei (新信微) 与 [Novahaku (刃)](https://github.com/novaestellar/nova
 
 ---
 
-### 新信微频道输出 → 刃测试模块 映射表
+### 新信微频道输出 → Novahaku测试模块 映射表
 
 | 新信微输出数据 | 来源渠道/功能 | Novahaku接收模块 | 测试方向 |
 |----------------|--------------|------------------|----------|
@@ -418,7 +418,7 @@ NovaXinWei (新信微) 与 [Novahaku (刃)](https://github.com/novaestellar/nova
 - JSON格式,通过 Hermes session context 传递 |
 | **目标命名** | 统一使用目标域名作为根目录名 |
 | **上下文传递** | 通过 Hermes skill chaining,用户意图自动路由 |
-| **互不侵入** | 新信微不写exploit代码,刃不写爬虫代码 |
+| **互不侵入** | 新信微不写exploit代码,Novahaku不写爬虫代码 |
 | **侦察输出结构** | `recon.json` 包含: `subdomains[]`、`ports[]`、`tech_stack[]`、`waf_type`、`platforms[]`、`dorks_hits[]`、`raw_content[]` |
 | **测试输入约定** | 读取 `recon.json` 的 `subdomains`、`ports`、`tech_stack` 字段,据此自动选择测试模块 |
 
