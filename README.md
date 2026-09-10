@@ -25,7 +25,7 @@ NovaXinWei 是一个统一的网络侦察引擎，整合了 **4大核心能力**
 |------|------|
 | 🛡️ WAF绕过抓取链 | curl_cffi TLS指纹模拟 + Playwright无头浏览器回退 |
 | 🌐 15平台API路由 | Reddit、YouTube、X/Twitter、Threads、小红书、B站、V2EX、Facebook、Instagram、LinkedIn、博客园、CSDN、SegmentFault、SoGitee、Codeberg |
-|| 🔍 Dork数据库 | Shodan 126+模式 + GitHub 234+模式,多分类 |
+|| 🔍 Dork数据库 | Shodan 126+模式 + GitHub 127+模式,多分类 |
 | ⚡ 并行抓取 | ThreadPoolExecutor，可配置工作线程数 |
 | 🧠 自学习系统 | 4层反馈闭环，自动记录成功模式 |
 | 🔒 内容安全 | 6层提示注入检测 + URL掩码保护 |
@@ -140,7 +140,7 @@ novaxinwei/
 │   └── web.py               # Web兜底
 ├── dorks/                   # Dork数据库
 │   ├── shodan-dorks.yaml    # Shodan 126模式
-│   ├── github-dorks.txt     # GitHub 234模式
+│   ├── github-dorks.txt     # GitHub 127模式
 │   └── github_dorks/        # GitHub Dorks CLI
 │       ├── __init__.py
 │       ├── __main__.py
@@ -237,7 +237,7 @@ python -m novaxinwei check reddit
 | Network | 16 | VPN、防火墙、代理 |
 | Security | 30 | 漏洞、暴露服务 |
 
-#### GitHub Dorks (234+模式, 10分类)
+#### GitHub Dorks (127+模式, 10分类)
 
 | 分类 | 模式数 | 说明 |
 |------|--------|------|
@@ -340,7 +340,7 @@ NovaXinWei (新信微) 与 [Novahaku](https://github.com/novaestellar/novahaku) 
   │
   ├─ 1c. Dork数据库查询
   │   - Shodan 126+模式(Web Server/DB/IoT/Cloud/Industrial/Network/Security)
-  │   - GitHub 234+模式(Credentials/Config/Keys/CI-CD/Cloud等10分类)
+  │   - GitHub 127+模式(Credentials/Config/Keys/CI-CD/Cloud等10分类)
   │
   ├─ 1d. 并行批量抓取
   │   - ThreadPoolExecutor可配置工作线程
@@ -399,7 +399,7 @@ NovaXinWei (新信微) 与 [Novahaku](https://github.com/novaestellar/novahaku) 
 | **技术栈指纹** | WAF绕过抓取链(Wappalyzer) | Web测试(14模块) | 根据框架选择: Laravel审计/Supabase审计/Next.js审计 |
 | **WAF类型** | WAF检测器(waf_detector.py) | Web测试(WAF绕过) | 绕过策略: payload变形、编码绕过、时间盲注 |
 | **社交媒体内容** | 15平台API路由 | OSINT + 提示工程 | 信息泄露→社工素材、暴露凭据 |
-| **代码仓库数据** | GitHub Dorks (234模式) | Pwn Chain + 攻击框架 | 泄露私钥→SSH认证; 泄露密码→认证绕过; CI/CD→供应链攻击 |
+| **代码仓库数据** | GitHub Dorks (127+模式) | Pwn Chain + 攻击框架 | 泄露私钥→SSH认证; 泄露密码→认证绕过; CI/CD→供应链攻击 |
 | **IoT/SCADA设备** | Shodan Dorks (IoT/Industrial分类) | Windows逆向 + EDR绕过 | 固件逆向、工控协议漏洞 |
 | **云配置** | Shodan Dorks (Cloud分类) + GitHub Dorks (Cloud) | OSINT(Cloud/SaaS Exposure) | S3桶、Azure Blob、GCP Storage暴露 |
 | **RSS/Feed数据** | RSS通用频道 | 重构引擎(Reframe) | 内容分析→检测AI生成内容、信息篡改 |

@@ -87,7 +87,7 @@ python -m novaxinwei dorks github password
 
 ### 3. Dork Databases
 - **Shodan:** 126 dork patterns (7 categories)
-- **GitHub:** 234 dork patterns (10 categories)
+- **GitHub:** 127 dork patterns (10 categories)
 
 ### 4. Parallel Fetch
 ```python
