@@ -95,6 +95,24 @@ from novaxinwei.channels import fetch_parallel
 results = fetch_parallel(["url1", "url2", "url3"], max_workers=5)
 ```
 
+### 5. Engagement Output (New — Synergy with Novahaku)
+- Creates `engagements/<target>/` directory structure
+- Writes `recon.json` with standardized schema v1.0
+- Compatible with Novahaku's engagement reader
+```bash
+python -m novaxinwei engagement create --target example.com
+python -m novaxinwei engagement list
+python -m novaxinwei engagement summary --target example.com
+```
+
+### 6. Threat Intel Enrichment (New — Synergy with Novahaku)
+- Enriches recon data with DNS, WHOIS, certificate transparency
+- 3 levels: basic, enhanced, full
+```bash
+python -m novaxinwei enrich example.com --level basic
+python -m novaxinwei enrich example.com --level enhanced --json
+```
+
 ## Usage with Hermes
 
 When user asks to:
@@ -102,6 +120,8 @@ When user asks to:
 - "Recon target" → use fetch chain + dorks
 - "Check social media" → use channel check
 - "Parallel fetch" → use `fetch-parallel`
+- "Enrich target" → use `python -m novaxinwei enrich <target>`
+- "Engagement" → use `python -m novaxinwei engagement create/list/summary`
 
 ## Dependencies
 - `curl_cffi` — TLS impersonation (required)

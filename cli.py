@@ -54,6 +54,20 @@ def build_parser() -> argparse.ArgumentParser:
     # check
     sub.add_parser("check", help="Check channel availability")
 
+    # enrich
+    enrich_p = sub.add_parser("enrich", help="Enrich recon data with threat intel")
+    enrich_p.add_argument("target", help="Target domain to enrich")
+    enrich_p.add_argument("--level", choices=["basic", "enhanced", "full"], default="basic",
+                          help="Enrichment level (default: basic)")
+    enrich_p.add_argument("--json", action="store_true", help="Output as JSON")
+
+    # engagement
+    eng_p = sub.add_parser("engagement", help="Manage engagement directories")
+    eng_p.add_argument("action", choices=["create", "list", "summary"],
+                       help="Action: create, list, or summary")
+    eng_p.add_argument("--target", help="Target domain (required for create/summary)")
+    eng_p.add_argument("--json", action="store_true", help="Output as JSON")
+
     return p
 
 
@@ -155,6 +169,73 @@ def cmd_check(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_enrich(args: argparse.Namespace) -> int:
+    from novaxinwei.engine.enrichment import EnrichmentEngine
+    engine = EnrichmentEngine()
+    enriched = engine.enrich(args.target, level=args.level)
+    engine.save_enriched(args.target, enriched)
+    if args.json:
+        print(json.dumps(enriched, indent=2, ensure_ascii=False))
+    else:
+        print(f"Enriched {args.target} (level: {args.level})")
+        recon = enriched.get("recon", {})
+        print(f"  DNS: {len(recon.get('dns', {}).get('ips', []))} IPs")
+        print(f"  Subdomains: {len(recon.get('subdomains', []))}")
+        print(f"  Endpoints: {len(recon.get('endpoints', []))}")
+    return 0
+
+
+def cmd_engagement(args: argparse.Namespace) -> int:
+    from novaxinwei.engine.engagement_output import EngagementManager
+    from pathlib import Path
+
+    if args.action == "create":
+        if not args.target:
+            print("Error: --target required for create", file=sys.stderr)
+            return 1
+        em = EngagementManager(args.target)
+        em.create_dirs()
+        print(f"Engagement directory created: {em.engagement_dir}")
+        return 0
+
+    elif args.action == "list":
+        engagements_dir = Path("engagements")
+        if not engagements_dir.exists():
+            print("No engagements directory found")
+            return 0
+        targets = [d.name for d in engagements_dir.iterdir() if d.is_dir() and d.name != "synergy-integration"]
+        if args.json:
+            print(json.dumps(targets, indent=2))
+        else:
+            for t in targets:
+                print(t)
+        return 0
+
+    elif args.action == "summary":
+        if not args.target:
+            print("Error: --target required for summary", file=sys.stderr)
+            return 1
+        from novaxinwei.engine.engagement_output import EngagementManager
+        em = EngagementManager(args.target)
+        recon = em.read_recon()
+        if recon:
+            if args.json:
+                print(json.dumps(recon, indent=2, ensure_ascii=False))
+            else:
+                print(f"=== Engagement Summary for {args.target} ===")
+                print(f"Source: {recon.get('source', 'Unknown')}")
+                print(f"Timestamp: {recon.get('timestamp', 'Unknown')}")
+                r = recon.get("recon", {})
+                print(f"Subdomains: {len(r.get('subdomains', []))}")
+                print(f"Ports: {len(r.get('ports', []))}")
+                print(f"Endpoints: {len(r.get('endpoints', []))}")
+        else:
+            print(f"No recon data found for {args.target}")
+        return 0
+
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     if args.command == "fetch":
@@ -165,6 +246,10 @@ def main(argv: list[str] | None = None) -> int:
         return cmd_dorks(args)
     elif args.command == "check":
         return cmd_check(args)
+    elif args.command == "enrich":
+        return cmd_enrich(args)
+    elif args.command == "engagement":
+        return cmd_engagement(args)
     else:
         build_parser().print_help()
         return 0
