@@ -22,21 +22,21 @@
 - [x] Create TODO_CHECKLIST.md
 
 ## Phase 4: Implementation
-- [ ] Feature 1: engagement_output.py (NovaXinWei)
-- [ ] Feature 2: recon_reader.py (Novahaku)
-- [ ] Feature 3: recon_schema.py + recon_formatter.py (NovaXinWei)
-- [ ] Feature 4: enrichment.py + enrichment_config.py (NovaXinWei)
+- [x] Feature 1: engagement_output.py (NovaXinWei)
+- [x] Feature 2: recon_reader.py (Novahaku)
+- [x] Feature 3: recon_schema.py + recon_formatter.py (NovaXinWei)
+- [x] Feature 4: enrichment.py + enrichment_config.py (NovaXinWei)
 
 ## Phase 5: SKILL.md Updates
-- [ ] Novahaku SKILL.md — add triggers
-- [ ] NovaXinWei SKILL.md — add triggers + capabilities
-- [ ] TRIGGER_MAP.json — add recon-cache category
+- [x] Novahaku SKILL.md — add triggers
+- [x] NovaXinWei SKILL.md — add triggers + capabilities
+- [x] TRIGGER_MAP.json — add recon-cache category
 
 ## Phase 6: Code Audit
-- [ ] Verify all new files have no syntax errors
-- [ ] Verify all existing scripts still work
-- [ ] Security audit — no hardcoded secrets
-- [ ] Performance check — no unnecessary loops
+- [x] Verify all new files have no syntax errors
+- [x] Verify all existing scripts still work
+- [x] Security audit — no hardcoded secrets
+- [x] Performance check — no unnecessary loops
 
 ## Phase 7-8: Oracle Review
 - [ ] Oracle A: Branding/Naming
@@ -46,9 +46,9 @@
 - [ ] Oracle E: Git/Integrity
 
 ## Phase 9: Tests
-- [ ] test_synergy.sh — all tests pass
-- [ ] Existing functionality preserved
-- [ ] New features work as expected
+- [x] test_synergy.sh — all tests pass
+- [x] Existing functionality preserved
+- [x] New features work as expected
 
 ## Phase 10: Reports
 - [ ] PHASE_4_REPORT.md
@@ -59,8 +59,8 @@
 - [ ] INTEGRATION_SUMMARY.md
 
 ## Phase 11: Commit & Push
-- [ ] NovaXinWei committed + pushed
-- [ ] Novahaku committed + pushed
-- [ ] Both synced to hermes skills folder
-- [ ] HANDOFF.md created
-- [ ] ARCHIVE_MANIFEST.md created
+- [x] NovaXinWei committed + pushed
+- [x] Novahaku committed + pushed
+- [x] Both synced to hermes skills folder
+- [x] HANDOFF.md created
+- [x] ARCHIVE_MANIFEST.md created

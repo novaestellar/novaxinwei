@@ -170,7 +170,7 @@ def cmd_check(args: argparse.Namespace) -> int:
 
 
 def cmd_enrich(args: argparse.Namespace) -> int:
-    from novaxinwei.engine.enrichment import EnrichmentEngine
+    from engine.enrichment import EnrichmentEngine
     engine = EnrichmentEngine()
     enriched = engine.enrich(args.target, level=args.level)
     engine.save_enriched(args.target, enriched)
@@ -186,7 +186,7 @@ def cmd_enrich(args: argparse.Namespace) -> int:
 
 
 def cmd_engagement(args: argparse.Namespace) -> int:
-    from novaxinwei.engine.engagement_output import EngagementManager
+    from engine.engagement_output import EngagementManager
     from pathlib import Path
 
     if args.action == "create":
@@ -215,7 +215,7 @@ def cmd_engagement(args: argparse.Namespace) -> int:
         if not args.target:
             print("Error: --target required for summary", file=sys.stderr)
             return 1
-        from novaxinwei.engine.engagement_output import EngagementManager
+        from engine.engagement_output import EngagementManager
         em = EngagementManager(args.target)
         recon = em.read_recon()
         if recon:
