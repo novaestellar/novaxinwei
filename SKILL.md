@@ -113,7 +113,32 @@ python -m novaxinwei engagement list
 python -m novaxinwei engagement summary --target example.com
 ```
 
-### 6. Threat Intel Enrichment (New — Synergy with Novahaku)
+### 6. CVE Intelligence Tool (New — Synergy with Novahaku)
+- **Script:** `tools/cve/cve_scraper.py` — GitHub Security Advisories + HackerOne disclosed reports
+- **Auto-export:** `tools/cve/export_to_novahaku.py` — sends feed to Novahaku hunt-cicd cache
+- **Consumer:** Novahaku `hunt-cicd` uses this feed for CI/CD exploit context (see novahaku hunt-cicd § CVE Feed)
+```bash
+python -m novaxinwei tools/cve/cve_scraper.py --ecosystem npm --severity critical
+python -m novaxinwei tools/cve/export_to_novahaku.py
+```
+
+### 7. Wayback Machine Tool (WayAI — Synergy with Novahaku)
+- **Script:** `tools/wayai/wayai.py` — Wayback CDX API + Common Crawl URL harvester
+- **Pipeline:** WayAI outputs URLs → Novahaku `secret_scan.py --stdin` scans for 80+ secret patterns
+- **Consumer:** Novahaku offensive-osint (see novahaku offensive-osint § Wayback/URL Harvesting)
+```bash
+python -m novaxinwei wayai example.com | python novahaku/testing/offensive-osint/scripts/secret_scan.py --stdin
+```
+
+### 8. GitHub Pages Enumeration Tool (New — Synergy with Novahaku)
+- **Script:** `tools/github_pages/github_pages_enum.py` — scan GitHub Pages for private repo content leaks
+- **Use case:** Detect `username.github.io/repo-name/` exposing private code/credentials
+- **Consumer:** Novahaku consumes findings for exploit workflows
+```bash
+python -m novaxinwei tools/github_pages/github_pages_enum.py --username victim-org --repos api,secrets,config
+```
+
+### 9. Threat Intel Enrichment (Synergy with Novahaku)
 - Enriches recon data with DNS, WHOIS, certificate transparency
 - 3 levels: basic, enhanced, full
 ```bash
