@@ -16,3 +16,4 @@ package-lock.json
 # Runtime data
 observations/
 *.jsonl
+cve_cache/cve-feed.json
