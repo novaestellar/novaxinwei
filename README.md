@@ -413,6 +413,8 @@ NovaXinWei (新信微) 与 [Novahaku](https://github.com/novaestellar/novahaku) 
 | **API端点** | Web抓取 + 平台路由 | Web测试(dirfuzz + methods) | API枚举→未授权访问、IDOR、GraphQL注入 |
 | **邮件域名信息** | Whois/DNS + Dorks | OSINT(Email Domain Security) | SPF/DKIM/DMARC配置→邮件欺骗 |
 | **内部文档** | GitHub Dorks (Internal/Backup分类) | 攻击框架 + Pwn Chain | 信息泄露→社工、凭证提取、内部网络拓扑 |
+| **CVE情报** | CVE Scraper (tools/cve/) | Novahaku hunt-cicd (cache/cve-feed.json) | 最新advisory→CI/CD exploit context、供应链攻击 |
+| **GitHub Pages泄露** | GitHub Pages Enum (tools/github_pages/) | Novahaku offensive-osint + Web测试 | 私有仓库内容泄露→源码/凭据提取 |
 
 ---
 
