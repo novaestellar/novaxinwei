@@ -19,6 +19,13 @@ triggers:
   - nodseek
   - nodloc
   - pojie
+  - wayback
+  - wayai
+  - archive
+  - historical
+  - snapshot
+  - common crawl
+  - url history
 capabilities:
   - WAF-bypass fetch chain (curl_cffi TLS impersonation + Playwright fallback)
   - 15 Phase 0 API routes (Reddit, X/Twitter, YouTube, Threads, Xiaohongshu, Bilibili, V2EX, Facebook, Instagram, LinkedIn, Cnblogs, CSDN, SegmentFault, SoGitee, Codeberg)

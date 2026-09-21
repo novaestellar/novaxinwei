@@ -26,6 +26,7 @@ NovaXinWei 是一个统一的网络侦察引擎，整合了 **4大核心能力**
 | 🛡️ WAF绕过抓取链 | curl_cffi TLS指纹模拟 + Playwright无头浏览器回退 |
 | 🌐 15平台API路由 | Reddit、YouTube、X/Twitter、Threads、小红书、B站、V2EX、Facebook、Instagram、LinkedIn、博客园、CSDN、SegmentFault、SoGitee、Codeberg |
 || 🔍 Dork数据库 | Shodan 126+模式 + GitHub 127+模式,多分类 |
+| ⏰ Wayback历史挖掘 | Wayback Machine + Common Crawl历史URL、子域名发现 |
 | ⚡ 并行抓取 | ThreadPoolExecutor，可配置工作线程数 |
 | 🧠 自学习系统 | 4层反馈闭环，自动记录成功模式 |
 | 🔒 内容安全 | 6层提示注入检测 + URL掩码保护 |
@@ -145,6 +146,10 @@ novaxinwei/
 │       ├── __init__.py
 │       ├── __main__.py
 │       └── cli.py
+├── tools/                   # 被动侦察工具
+│   └── wayai/               # Wayback Machine + Common Crawl
+│       ├── wayai.py         # CLI recon tool
+│       └── SKILL.md         # 工具文档
 ├── references/              # 参考文档 (20个)
 │   ├── tls-impersonate.md   # TLS指纹模拟
 │   ├── playwright.md        # Playwright指南
