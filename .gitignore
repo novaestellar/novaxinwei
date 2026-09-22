@@ -1,3 +1,4 @@
+# Python
 __pycache__/
 *.pyc
 *.pyo
@@ -8,12 +9,55 @@ dist/
 build/
 .eggs/
 *.egg
+*.whl
+
+# Environment & secrets
 .env
-.env.local
+.env.*
+!.env.example
+*.key
+*.pem
+*.p12
+*.pfx
+*.jks
+*.keystore
+vault.dat
+config.yaml
+*.secret
+*.credential
+*.token
+keys_*.txt
+
+# Node
 node_modules/
 package-lock.json
+
+# IDE / OS
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs, temp, backups
+*.log
+*.tmp
+*.temp
+*.bak
+*.backup
+*.old
 
 # Runtime data
 observations/
 *.jsonl
 cve_cache/cve-feed.json
+runs/
+*.pid
+
+# Recon scan output (auto-generated)
+*_all.txt
+*_subs.txt
+*_urls.txt
