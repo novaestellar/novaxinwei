@@ -23,6 +23,18 @@ except ImportError:
     HAS_SOCKET = False
 
 
+def _default_root() -> Path:
+    """Shared engagements root: NOVAHAKU_ENGAGEMENT_DIR, else ./engagements.
+
+    Same precedence as chain_state._default_root and engagement_output. This
+    engine's default was a bare Path("engagements"), so it ignored the env var
+    the rest of the repo honours and enriched into a different root than the one
+    recon was written to - the CLI then reported success on an empty result.
+    """
+    env = os.environ.get("NOVAHAKU_ENGAGEMENT_DIR", "").strip()
+    return Path(env).resolve() if env else Path("engagements")
+
+
 class EnrichmentEngine:
     """Enriches recon data with threat intelligence."""
 
@@ -33,7 +45,7 @@ class EnrichmentEngine:
         Args:
             engagements_dir: Base engagements directory
         """
-        self.engagements_dir = Path(engagements_dir) if engagements_dir else Path("engagements")
+        self.engagements_dir = Path(engagements_dir) if engagements_dir else _default_root()
 
     def enrich(self, target: str, level: str = "basic") -> Dict[str, Any]:
         """
@@ -177,3 +189,13 @@ def enrich_target(target: str, level: str = "basic",
     enriched = engine.enrich(target, level)
     engine.save_enriched(target, enriched)
     return enriched
+
+
+def enrich_recon(target: str, level: str = "basic",
+                 engagements_dir: str = None) -> Dict[str, Any]:
+    """Alias for enrich_target().
+
+    The integration plan refers to this name. Kept as a thin alias rather than a
+    rename so existing callers of enrich_target() keep working.
+    """
+    return enrich_target(target, level=level, engagements_dir=engagements_dir)

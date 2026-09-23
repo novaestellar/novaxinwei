@@ -19,6 +19,43 @@ from pathlib import Path
 from typing import Dict, List, Optional, Any
 
 
+def validate_target_name(target: str) -> str:
+    """Validate a target as a single directory name and return it trimmed.
+
+    Lives here rather than in engagement_writer because engagement_writer
+    imports EngagementManager from this module at load time; importing back
+    would be a cycle. engagement_writer re-exports this name, so callers that
+    already import from there keep working.
+
+    A target arrives from recon output, so it is untrusted. Rejecting up front
+    turns every hostile name into the single documented failure mode,
+    ValueError, instead of a raw NotADirectoryError from mkdir halfway through
+    building the tree.
+
+    Raises:
+        ValueError: empty, whitespace-padded, too long, or containing a path
+            separator, "..", a NUL byte, or a Windows-illegal character.
+    """
+    if not target or not target.strip():
+        raise ValueError("target must not be empty")
+    if target != target.strip():
+        raise ValueError(f"target must not have leading/trailing spaces: {target!r}")
+    if len(target) > 255:
+        raise ValueError(f"target too long ({len(target)} chars, max 255): {target[:40]!r}...")
+    if os.sep in target or (os.altsep and os.altsep in target) or ".." in target:
+        raise ValueError(f"target must not contain path separators: {target!r}")
+    if os.path.isabs(target):
+        raise ValueError(f"target must be a plain directory name: {target!r}")
+    if "\x00" in target:
+        raise ValueError(f"target must not contain NUL bytes: {target!r}")
+    bad = sorted(set('<>:"|?*') & set(target))
+    if bad:
+        raise ValueError(f"target contains characters illegal on Windows {bad}: {target!r}")
+    if any(ord(c) < 32 for c in target):
+        raise ValueError(f"target must not contain control characters: {target!r}")
+    return target
+
+
 class EngagementManager:
     """Manages engagement directory structure for recon output."""
 
@@ -27,12 +64,46 @@ class EngagementManager:
         Initialize engagement manager.
 
         Args:
-            target: Target domain (e.g., "example.com")
+            target: Target domain (e.g., "example.com"). Must be a plain
+                directory name - see validate_target_name().
             base_dir: Base directory for engagements (default: ./engagements)
+
+        Raises:
+            ValueError: target is empty, padded, too long, or path-like. Checked
+                here, in the constructor, because every method below builds paths
+                from self.engagement_dir: validating only in write_engagement
+                left `engagement create --target ../escaped.example` able to write
+                outside base_dir, and left the other methods raising raw
+                NotADirectoryError instead of the documented ValueError.
         """
+        validate_target_name(target)
         self.target = target
-        self.base_dir = Path(base_dir) if base_dir else Path("engagements")
+        # Precedence: explicit base_dir, then NOVAHAKU_ENGAGEMENT_DIR, then
+        # ./engagements. The env var is the shared engagements root that
+        # novahaku's engagement.py/engage_runner.py and the web2-recon scripts
+        # already honour; ignoring it here meant a pipeline with the variable set
+        # wrote recon.json to ./engagements while novahaku read the env dir, so
+        # neither side saw the other's files.
+        if base_dir:
+            self.base_dir = Path(base_dir)
+        elif os.environ.get("NOVAHAKU_ENGAGEMENT_DIR", "").strip():
+            self.base_dir = Path(os.environ["NOVAHAKU_ENGAGEMENT_DIR"].strip())
+        else:
+            self.base_dir = Path("engagements")
         self.engagement_dir = self.base_dir / target
+
+    def _assert_inside_base(self) -> None:
+        """Belt and braces: refuse to write when the resolved dir escaped base.
+
+        validate_target_name() already blocks every known escape, but a path
+        check on the resolved result is the check that cannot be talked around.
+        """
+        base = self.base_dir.resolve()
+        target = self.engagement_dir.resolve()
+        if base != target and base not in target.parents:
+            raise ValueError(
+                "target resolves outside the engagements directory: %r" % (self.target,)
+            )
 
     def create_dirs(self) -> Path:
         """
@@ -58,6 +129,7 @@ class EngagementManager:
             self.engagement_dir / "assets",
         ]
 
+        self._assert_inside_base()
         for d in dirs:
             d.mkdir(parents=True, exist_ok=True)
 
@@ -85,6 +157,7 @@ class EngagementManager:
         }
 
         recon_path = self.engagement_dir / "recon.json"
+        self._assert_inside_base()
         with open(recon_path, "w", encoding="utf-8") as f:
             json.dump(output, f, indent=2, ensure_ascii=False)
 
@@ -109,6 +182,7 @@ class EngagementManager:
         }
 
         meta_path = self.engagement_dir / "metadata.json"
+        self._assert_inside_base()
         with open(meta_path, "w", encoding="utf-8") as f:
             json.dump(metadata, f, indent=2, ensure_ascii=False)
 
@@ -129,6 +203,7 @@ class EngagementManager:
         self.create_dirs()
 
         evidence_dir = self.engagement_dir / "evidence" / stage
+        self._assert_inside_base()
         evidence_dir.mkdir(parents=True, exist_ok=True)
 
         evidence_path = evidence_dir / filename
