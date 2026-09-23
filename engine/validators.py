@@ -347,3 +347,143 @@ def _extract_cookies(resp) -> dict:
             return dict(resp.cookies) if hasattr(resp, "cookies") else {}
         except Exception:
             return {}
+
+
+class _Resp:
+    """Minimal stand-in for a curl_cffi/requests response."""
+
+    def __init__(self, status_code=200, text="", headers=None, cookies=None):
+        self.status_code = status_code
+        self.text = text
+        self.headers = headers or {}
+        self.cookies = cookies if cookies is not None else {}
+
+
+def _selftest() -> int:
+    """Self-check. Runs standalone, touches nothing on disk."""
+    checks = []
+    v = validate
+
+    # --- Layer 1: status semantics ---
+    checks.append(("429 is rate_limited and terminal",
+                   v(_Resp(429)).verdict is Verdict.RATE_LIMITED))
+    checks.append(("429 rejected from terminal-success set",
+                   v(_Resp(429)).ok is False))
+    checks.append(("401 is auth_required (terminal)",
+                   v(_Resp(401)).verdict is Verdict.AUTH_REQUIRED
+                   and v(_Resp(401)).verdict in TERMINAL_NONSUCCESS))
+    checks.append(("407 is auth_required",
+                   v(_Resp(407)).verdict is Verdict.AUTH_REQUIRED))
+    checks.append(("404 is not_found (terminal)",
+                   v(_Resp(404)).verdict is Verdict.NOT_FOUND
+                   and v(_Resp(404)).verdict in TERMINAL_NONSUCCESS))
+    checks.append(("500 is blocked (NON-terminal)",
+                   v(_Resp(500)).verdict is Verdict.BLOCKED
+                   and v(_Resp(500)).verdict not in TERMINAL_NONSUCCESS))
+    checks.append(("status 0 is unknown",
+                   v(_Resp(0)).verdict is Verdict.UNKNOWN))
+
+    # --- Layer 2: hard markers are decisive, and anchored correctly ---
+    for marker in ("Just a moment...", "window._cf_chl_opt"):
+        body = f"<html><script>{marker}</script></html>"
+        checks.append((f"hard marker detected: {marker[:22]}",
+                       v(_Resp(403, body)).verdict is Verdict.CHALLENGE))
+    # Lookbehind: an embedded tail ("octocaptcha") must NOT count as a marker.
+    checks.append(("embedded tail not a marker (octocaptcha)",
+                   "captcha" not in _hard_marker_hits("octocaptcha enabled")
+                   and "captcha" not in _soft_marker_hits("octocaptcha enabled")))
+    # No lookahead: structural marker legitimately prefixes a longer token.
+    checks.append(("prefixed structural marker still detected",
+                   "window._cf_chl_opt" in
+                   _hard_marker_hits("window._cf_chl_opt = {a:1}")))
+
+    # --- Layer 3: size fingerprint, tolerant both ways ---
+    body = "x" * 5000
+    checks.append(("size within tolerance is challenge",
+                   v(_Resp(200, body), known_bad_sizes=[5010],
+                     size_tolerance=20).verdict is Verdict.CHALLENGE))
+    checks.append(("size outside tolerance is NOT challenge",
+                   v(_Resp(200, body), known_bad_sizes=[5010],
+                     size_tolerance=2).verdict is not Verdict.CHALLENGE))
+
+    # --- Layer 4: JSON awareness ---
+    checks.append(("2xx with non-empty JSON is weak_ok",
+                   v(_Resp(200, '{"a":1}', {"content-type": "application/json"})
+                     ).verdict is Verdict.WEAK_OK))
+    checks.append(("2xx with empty JSON is suspect (NON-terminal)",
+                   v(_Resp(200, "{}", {"content-type": "application/json"})
+                     ).verdict is Verdict.SUSPECT_OK))
+    checks.append(("suspect_ok is not a success verdict",
+                   v(_Resp(200, "{}", {"content-type": "application/json"})
+                     ).ok is False))
+
+    # --- Layer 5: caller positive proof ---
+    page = "<html><body><div id='main'>Hello world content here</div></body></html>"
+    checks.append(("matching selector is strong_ok",
+                   v(_Resp(200, page), success_selectors=["#main"]).verdict
+                   is Verdict.STRONG_OK))
+    checks.append(("matching selector records the hit",
+                   v(_Resp(200, page), success_selectors=["#main"]
+                     ).matched_selectors == ["#main"]))
+    checks.append(("requested selector that misses is challenge",
+                   v(_Resp(200, page), success_selectors=["#nope"]).verdict
+                   is Verdict.CHALLENGE))
+    # Selector matched but Akamai sensor unresolved → demoted, non-terminal.
+    akamai = _Resp(200, page, cookies={"_abck": "ABC~-1~DEF"})
+    checks.append(("selector hit + unresolved abck demotes to suspect",
+                   v(akamai, success_selectors=["#main"]).verdict
+                   is Verdict.SUSPECT_OK))
+
+    # --- Layer 6: heuristics, and the short-but-complete-page exception ---
+    checks.append(("two soft markers is challenge",
+                   v(_Resp(200, "access denied. datadome active" + " " * 4000)
+                     ).verdict is Verdict.CHALLENGE))
+    checks.append(("tiny incomplete body is challenge",
+                   v(_Resp(200, "<script>x</script>")).verdict
+                   is Verdict.CHALLENGE))
+    short_real = ("<html><body>" + "<p>Real short page with visible text.</p>" * 4
+                  + "</body></html>")
+    checks.append(("short BUT complete page is weak_ok (not a stub)",
+                   len(short_real) < SMALL_BODY_THRESHOLD
+                   and v(_Resp(200, short_real)).verdict is Verdict.WEAK_OK))
+    big = "<html><body><p>" + "real content " * 400 + "</p></body></html>"
+    checks.append(("clean sizeable body is weak_ok",
+                   v(_Resp(200, big)).verdict is Verdict.WEAK_OK))
+    checks.append(("unresolved abck without proof is suspect, not ok",
+                   v(_Resp(200, big, cookies={"_abck": "X~-1~Y"})).verdict
+                   is Verdict.SUSPECT_OK))
+
+    # --- to_dict contract: consumers depend on these exact keys ---
+    d = v(_Resp(429)).to_dict()
+    checks.append(("to_dict has the 5 contract keys",
+                   set(d) == {"verdict", "reasons", "matched_selectors",
+                              "body_size", "status"}))
+    checks.append(("to_dict verdict is the enum value string",
+                   d["verdict"] == "rate_limited"))
+
+    # --- robustness: must never raise, must degrade to unknown ---
+    class _Broken:
+        @property
+        def status_code(self):
+            raise RuntimeError("boom")
+
+    try:
+        bad = v(_Broken())
+        ok = bad.verdict is Verdict.UNKNOWN
+    except Exception:
+        ok = False
+    checks.append(("never raises on broken response", ok))
+
+    failed = [name for name, ok in checks if not ok]
+    for name, ok in checks:
+        print(f"  [{'OK' if ok else 'FAIL'}] {name}")
+    if failed:
+        print(f"[!] validators selftest: {len(checks) - len(failed)}/{len(checks)} failed: {failed}")
+        return 1
+    print(f"[+] validators selftest: {len(checks)}/{len(checks)} checks passed")
+    return 0
+
+
+if __name__ == "__main__":
+    import sys
+    sys.exit(_selftest())
