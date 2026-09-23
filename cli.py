@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 from typing import Optional
 
@@ -33,6 +34,10 @@ def build_parser() -> argparse.ArgumentParser:
     fetch_p.add_argument("--device", choices=("auto", "desktop", "mobile"), default="auto")
     fetch_p.add_argument("--no-playwright", action="store_true", help="Skip Playwright fallback")
     fetch_p.add_argument("--no-phase0", action="store_true", help="Skip Phase 0 API router")
+    fetch_p.add_argument("--save-engagement", metavar="TARGET", default=None,
+                         help="Write the fetch result into engagements/TARGET/ as recon.json")
+    fetch_p.add_argument("--enrich", action="store_true",
+                         help="Enrich the saved engagement with threat intel (needs --save-engagement)")
 
     # fetch-parallel
     fp = sub.add_parser("fetch-parallel", help="Fetch multiple URLs in parallel")
@@ -67,6 +72,13 @@ def build_parser() -> argparse.ArgumentParser:
                        help="Action: create, list, or summary")
     eng_p.add_argument("--target", help="Target domain (required for create/summary)")
     eng_p.add_argument("--json", action="store_true", help="Output as JSON")
+    eng_p.add_argument("--base-dir", help="Engagements root (default: ./engagements)")
+
+    # chain
+    ch_p = sub.add_parser("chain", help="Show crossref chain state (who started, who is stale)")
+    ch_p.add_argument("--target", required=True, help="Target domain")
+    ch_p.add_argument("--base-dir", help="Engagements root (default: ./engagements)")
+    ch_p.add_argument("--json", action="store_true", help="Output as JSON")
 
     return p
 
@@ -98,7 +110,63 @@ def cmd_fetch(args: argparse.Namespace) -> int:
     else:
         print(result.to_untrusted_text(), end="")
 
+    if getattr(args, "save_engagement", None):
+        rc = _save_fetch_engagement(args, result)
+        if rc != 0:
+            return rc
+
     return 0 if result.ok else 1
+
+
+def _save_fetch_engagement(args: argparse.Namespace, result) -> int:
+    """Persist a fetch result into engagements/<target>/ via the writer.
+
+    Kept separate from cmd_fetch so the plain fetch path stays untouched. A
+    failure here is reported but does not turn a successful fetch into an error:
+    the page was fetched, only the bookkeeping failed.
+    """
+    import sys as _sys
+    from engine.engagement_writer import write_engagement_chained
+
+    target = args.save_engagement
+    version = "1.0"
+    payload = {
+        "version": version,
+        "target": target,
+        "source": "novaxinwei",
+        "recon": {
+            "url": getattr(result, "url", None) or args.url,
+            "subdomains": [],
+            "ports": [],
+            "endpoints": [],
+            "tech_stack": {},
+            "waf": {},
+            "origin_ip": None,
+        },
+        "metadata": {"fetches": 1, "cli": "fetch"},
+    }
+    try:
+        path = write_engagement_chained(target, payload)
+    except Exception as e:
+        print(f"Error: {type(e).__name__}: {e}", file=_sys.stderr)
+        return 1
+    if path is None:
+        print(f"Error: engagement for {target} was refused by validation", file=_sys.stderr)
+        return 1
+    print(f"Engagement saved: {path}")
+
+    if getattr(args, "enrich", False):
+        from engine.enrichment import EnrichmentEngine
+
+        try:
+            engine = EnrichmentEngine()
+            enriched = engine.enrich(target, level="basic")
+            engine.save_enriched(target, enriched)
+            print(f"Enriched: {target}")
+        except Exception as e:
+            print(f"Error: {type(e).__name__}: {e}", file=_sys.stderr)
+            return 1
+    return 0
 
 
 def cmd_fetch_parallel(args: argparse.Namespace) -> int:
@@ -185,6 +253,52 @@ def cmd_enrich(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_chain(args: argparse.Namespace) -> int:
+    """Report chain.json for one target, including staleness for both sides.
+
+    is_stale() previously had no caller anywhere in either repo, so the "which
+    side is working from an out-of-date picture" half of the chain contract was
+    never exercised outside its own selftest. This command is that consumer.
+    """
+    import importlib.util
+    from pathlib import Path
+
+    spec = importlib.util.spec_from_file_location(
+        "chain_state", str(Path(__file__).resolve().parent / "engine" / "chain_state.py")
+    )
+    cs = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(cs)
+
+    chain = cs.read_chain(args.target, base_dir=args.base_dir)
+    if chain is None:
+        print(f"No chain.json for {args.target} (has recon been written yet?)")
+        return 1
+
+    nxa_stale = cs.is_stale(chain, mine=cs.SIDE_NOVAXINWEI)
+    nhk_stale = cs.is_stale(chain, mine=cs.SIDE_NOVAHINAKU)
+
+    if args.json:
+        print(json.dumps({
+            "target": args.target,
+            "started_by": chain.get("started_by"),
+            "state": chain.get("state", {}),
+            "history_len": len(chain.get("history", []) or []),
+            "novaxinwei_stale": nxa_stale,
+            "novahaku_stale": nhk_stale,
+        }, indent=2, ensure_ascii=False))
+        return 0
+
+    state = chain.get("state", {}) if isinstance(chain.get("state"), dict) else {}
+    print(f"=== chain for {args.target} ===")
+    print(f"started_by       : {chain.get('started_by')}")
+    print(f"recon_at         : {state.get('recon_at', '-')} (by {state.get('recon_by', '-')})")
+    print(f"results_at       : {state.get('results_at', '-')} (by {state.get('results_by', '-')})")
+    print(f"history entries  : {len(chain.get('history', []) or [])}")
+    print(f"novaxinwei stale : {nxa_stale}")
+    print(f"novahaku stale   : {nhk_stale}")
+    return 0
+
+
 def cmd_engagement(args: argparse.Namespace) -> int:
     from engine.engagement_output import EngagementManager
     from pathlib import Path
@@ -193,13 +307,25 @@ def cmd_engagement(args: argparse.Namespace) -> int:
         if not args.target:
             print("Error: --target required for create", file=sys.stderr)
             return 1
-        em = EngagementManager(args.target)
-        em.create_dirs()
+        try:
+            em = EngagementManager(args.target, base_dir=args.base_dir)
+            em.create_dirs()
+        except ValueError as e:
+            print(f"Error: {e}", file=sys.stderr)
+            return 1
         print(f"Engagement directory created: {em.engagement_dir}")
         return 0
 
     elif args.action == "list":
-        engagements_dir = Path("engagements")
+        # Honour --base-dir and NOVAHAKU_ENGAGEMENT_DIR, like every other
+        # engagement subcommand. This hardcoded ./engagements, so `list` showed
+        # an empty directory (or "No engagements directory found") whenever the
+        # operator had pointed the rest of the toolchain somewhere else - while
+        # `create`/`summary`/`chain` all worked. A listing that disagrees with the
+        # writer is worse than no listing: it reads as "engagement is gone".
+        engagements_dir = Path(args.base_dir) if args.base_dir else Path(
+            os.environ.get("NOVAHAKU_ENGAGEMENT_DIR", "").strip() or "engagements"
+        )
         if not engagements_dir.exists():
             print("No engagements directory found")
             return 0
@@ -216,7 +342,11 @@ def cmd_engagement(args: argparse.Namespace) -> int:
             print("Error: --target required for summary", file=sys.stderr)
             return 1
         from engine.engagement_output import EngagementManager
-        em = EngagementManager(args.target)
+        try:
+            em = EngagementManager(args.target, base_dir=args.base_dir)
+        except ValueError as e:
+            print(f"Error: {e}", file=sys.stderr)
+            return 1
         recon = em.read_recon()
         if recon:
             if args.json:
@@ -250,6 +380,8 @@ def main(argv: list[str] | None = None) -> int:
         return cmd_enrich(args)
     elif args.command == "engagement":
         return cmd_engagement(args)
+    elif args.command == "chain":
+        return cmd_chain(args)
     else:
         build_parser().print_help()
         return 0
