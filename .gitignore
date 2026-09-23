@@ -61,3 +61,32 @@ runs/
 *_all.txt
 *_subs.txt
 *_urls.txt
+
+# Engagement runtime data (per-target recon, results, chain state)
+# Only .md documents are tracked under engagements/ — anything generated at
+# runtime can carry target data (origin IP, WAF product, findings) and must
+# never be committed. Adding the rule BEFORE any writer exists means a first
+# test write can never reach the index.
+engagements/*/
+# Tracked under engagements/ are documents only. '!engagements/*.md' un-ignores
+# any *entry* ending in .md, including a directory - an engagement for a target
+# like app.md (Moldova) would then expose its whole tree. So: deny every file
+# that could hold engagement data, at any depth, before re-including documents.
+engagements/**/*.json
+engagements/**/*.csv
+engagements/**/*.har
+engagements/**/*.html
+engagements/**/*.txt
+engagements/**/*.log
+engagements/**/*.lock
+engagements/**/*.tmp
+# Re-include tracked documents last, so the rules above cannot re-ignore them.
+!engagements/*.md
+!engagements/*/*.md
+!engagements/*/*/*.md
+engagements/**/*.json
+engagements/**/*.csv
+engagements/**/*.har
+engagements/**/*.html
+engagements/**/evidence/
+engagements/**/.lock

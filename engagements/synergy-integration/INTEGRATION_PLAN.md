@@ -88,6 +88,14 @@ engagements/<target>/
 ```
 
 ### JSON Schema (recon.json v1.0)
+
+CORRECTED 2026-09-23. This block previously used a flat "waf_detected": false
+and omitted subdomains/ports/endpoints. That shape does not match
+engine/recon_schema.py, which is the single source of truth, so anything built
+from the old example was unreadable by Novahaku (it reads recon.waf.detected,
+not recon.waf_detected — the old reader returned None and reported "no WAF"
+for every target). Fields below mirror ReconData exactly.
+
 ```json
 {
   "version": "1.0",
@@ -95,13 +103,19 @@ engagements/<target>/
   "timestamp": "2026-09-21T12:00:00Z",
   "source": "novaxinwei",
   "recon": {
-    "url": "https://example.com",
-    "status": 200,
-    "waf_detected": false,
+    "subdomains": [],
+    "ports": [],
     "tech_stack": {},
-    "headers": {},
-    "redirects": [],
-    "origin_ip": null
+    "waf": {"detected": false, "product": null},
+    "origin_ip": null,
+    "endpoints": [],
+    "dns": null,
+    "certificates": null,
+    "whois": null
+  },
+  "dorks": {
+    "shodan": [],
+    "github": []
   },
   "dorks": {
     "shodan": [],
@@ -153,11 +167,11 @@ engagements/<target>/
 ```bash
 cd D:/Labs/novaxinwei
 # Test schema validator
-python -c "from engine.engagement_schema import validate_recon; print(validate_recon({'version':'1.0','target':'test.com','timestamp':'','source':'novaxinwei','recon':{},'dorks':{},'fetch_trace':{},'metadata':{}}))"
+python -c "from engine.engagement_schema import validate_recon; print(validate_recon({'version':'1.0','target':'test.com','timestamp':'2026-09-21T00:00:00Z','source':'novaxinwei','recon':{'subdomains':[],'ports':[],'tech_stack':{},'waf':{},'endpoints':[]}}))"
 # Expected: [] (no errors)
 
 # Test engagement writer
-python -c "from engine.engagement_writer import write_engagement; write_engagement('test.example.com', {'version':'1.0','target':'test.example.com','timestamp':'2026-09-21T00:00:00Z','source':'novaxinwei','recon':{},'dorks':{},'fetch_trace':{},'metadata':{}})"
+python -c "from engine.engagement_writer import write_engagement; write_engagement('test.example.com', {'version':'1.0','target':'test.example.com','timestamp':'2026-09-21T00:00:00Z','source':'novaxinwei','recon':{'subdomains':[],'ports':[],'tech_stack':{},'waf':{},'endpoints':[]}})"
 ls engagements/test.example.com/
 cat engagements/test.example.com/recon.json | python -m json.tool
 
@@ -248,7 +262,9 @@ def get_waf_info(target: str) -> Optional[dict]:
     data = load_recon(target)
     if data is None:
         return None
-    return data.get("recon", {}).get("waf_detected")
+    # recon.waf is an object: {"detected": bool, "product": str|None}.
+    # "waf_detected" was never a real key - this returned None for every target.
+    return data.get("recon", {}).get("waf")
 
 def get_tech_stack(target: str) -> Optional[dict]:
     """Extract tech stack from cached recon."""
@@ -268,7 +284,7 @@ python -c "from testing.web2-recon.scripts.recon_reader import load_recon; print
 # Test with existing cache (after Feature 2 creates one)
 # First create a test engagement in novahaku's engagements/
 mkdir -p engagements/test-cache
-echo '{"version":"1.0","target":"test-cache","recon":{"waf_detected":true}}' > engagements/test-cache/recon.json
+echo '{"version":"1.0","target":"test-cache","recon":{"waf":{"detected":true},"subdomains":[],"ports":[],"tech_stack":{},"endpoints":[]}}' > engagements/test-cache/recon.json
 python -c "from testing.web2-recon.scripts.recon_reader import load_recon; print(load_recon('test-cache'))"
 # Expected: dict with version, target, recon
 rm -rf engagements/test-cache
