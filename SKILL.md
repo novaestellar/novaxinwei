@@ -105,13 +105,35 @@ results = fetch_parallel(["url1", "url2", "url3"], max_workers=5)
 
 ### 5. Engagement Output (New — Synergy with Novahaku)
 - Creates `engagements/<target>/` directory structure
-- Writes `recon.json` with standardized schema v1.0
+- Writes `recon.json` with standardized schema v1.0 (inbound to Novahaku)
 - Compatible with Novahaku's engagement reader
 ```bash
 python -m novaxinwei engagement create --target example.com
 python -m novaxinwei engagement list
 python -m novaxinwei engagement summary --target example.com
 ```
+
+**Shared root contract.** Both skills resolve `engagements/` the same way:
+explicit `base_dir` / `--base-dir` > `NOVAHAKU_ENGAGEMENT_DIR` > `<skill root>/engagements`.
+The default is anchored to each skill's own root (never CWD), so both resolve the
+same directory no matter where either is launched from. Set
+`NOVAHAKU_ENGAGEMENT_DIR` only when engagements live elsewhere — and then set it
+for both skills, since a one-sided setting means one side writes where the other
+does not read, surfacing as "no results yet" rather than an error. See
+`.env.example` § 与 Novahaku 的共享契约.
+
+**Outbound (Novahaku → NovaXinWei).** Novahaku publishes `results.json`
+(schema `novaxinwei.results.v1`) plus a flat `results.csv` twin into
+`engagements/<target>/`. Read them through `engine/results_reader.py` accessors
+rather than parsing raw JSON — they return `None` / empty on missing, corrupt,
+binary, non-dict, or `null` payloads. `get_severity_counts` returns **lowercase**
+keys (`{"high": 1}`) while `results[].severity` keeps original case (`"High"`).
+
+**Shared ledger.** `chain.json` (schema `novalabs.chain.v1`) records who started
+an engagement and who last contributed, so either side going first works. Both
+skills implement it independently — never import across skills. `CHAIN_VERSION`
+must stay identical on both sides; changing it on one side makes the other treat
+the ledger as unreadable.
 
 ### 6. CVE Intelligence Tool (New — Synergy with Novahaku)
 - **Script:** `tools/cve/cve_scraper.py` — GitHub Security Advisories + HackerOne disclosed reports
