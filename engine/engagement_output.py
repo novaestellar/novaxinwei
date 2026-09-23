@@ -79,17 +79,20 @@ class EngagementManager:
         validate_target_name(target)
         self.target = target
         # Precedence: explicit base_dir, then NOVAHAKU_ENGAGEMENT_DIR, then
-        # ./engagements. The env var is the shared engagements root that
+        # <skill root>/engagements. The env var is the shared engagements root that
         # novahaku's engagement.py/engage_runner.py and the web2-recon scripts
         # already honour; ignoring it here meant a pipeline with the variable set
         # wrote recon.json to ./engagements while novahaku read the env dir, so
-        # neither side saw the other's files.
+        # neither side saw the other's files. The fallback was also ./engagements
+        # (CWD-relative), so without the env var the two skills landed on
+        # different roots whenever either ran from another directory; the skill
+        # root anchor makes both resolve the same path from any CWD.
         if base_dir:
             self.base_dir = Path(base_dir)
         elif os.environ.get("NOVAHAKU_ENGAGEMENT_DIR", "").strip():
             self.base_dir = Path(os.environ["NOVAHAKU_ENGAGEMENT_DIR"].strip())
         else:
-            self.base_dir = Path("engagements")
+            self.base_dir = Path(__file__).resolve().parent.parent / "engagements"
         self.engagement_dir = self.base_dir / target
 
     def _assert_inside_base(self) -> None:

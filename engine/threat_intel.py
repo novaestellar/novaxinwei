@@ -230,7 +230,7 @@ def intel_summary(target: str, recon: Optional[Dict[str, Any]] = None,
 
 
 def _default_root() -> str:
-    """Shared engagements root: NOVAHAKU_ENGAGEMENT_DIR, else ./engagements.
+    """Shared engagements root: NOVAHAKU_ENGAGEMENT_DIR, else <skill root>/engagements.
 
     Same precedence as chain_state._default_root and engagement_output. Both
     readers here used os.getcwd() only, so with the env var set they resolved a
@@ -238,7 +238,12 @@ def _default_root() -> str:
     recon - silently returning an empty intel summary instead of an error.
     """
     env = os.environ.get("NOVAHAKU_ENGAGEMENT_DIR", "").strip()
-    return os.path.abspath(env) if env else os.path.join(os.getcwd(), "engagements")
+    if env:
+        return os.path.abspath(env)
+    # <skill root>/engagements, anchored to this file rather than CWD: see
+    # chain_state._default_root for why CWD-relative defaults split one
+    # engagement across two roots.
+    return os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "engagements")
 
 
 def enrich_with_intel(target: str, base_dir: Optional[str] = None) -> Dict[str, Any]:
@@ -386,8 +391,11 @@ def _selftest() -> int:
             checks.append(("env var selects root",
                            _default_root() == os.path.abspath(env_root)))
             del os.environ["NOVAHAKU_ENGAGEMENT_DIR"]
-            checks.append(("absent env falls back to cwd",
-                           _default_root() == os.path.join(os.getcwd(), "engagements")))
+            checks.append(("absent env falls back to skill root",
+                           _default_root() ==
+                           os.path.join(
+                               os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                               "engagements")))
         finally:
             if _old is not None:
                 os.environ["NOVAHAKU_ENGAGEMENT_DIR"] = _old

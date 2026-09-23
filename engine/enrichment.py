@@ -24,15 +24,20 @@ except ImportError:
 
 
 def _default_root() -> Path:
-    """Shared engagements root: NOVAHAKU_ENGAGEMENT_DIR, else ./engagements.
+    """Shared engagements root: NOVAHAKU_ENGAGEMENT_DIR, else <skill root>/engagements.
 
     Same precedence as chain_state._default_root and engagement_output. This
     engine's default was a bare Path("engagements"), so it ignored the env var
     the rest of the repo honours and enriched into a different root than the one
     recon was written to - the CLI then reported success on an empty result.
+    The bare Path was also CWD-relative, so two skills launched from different
+    directories resolved different roots; the skill root anchor removes CWD
+    from the equation entirely.
     """
     env = os.environ.get("NOVAHAKU_ENGAGEMENT_DIR", "").strip()
-    return Path(env).resolve() if env else Path("engagements")
+    if env:
+        return Path(env).resolve()
+    return Path(__file__).resolve().parent.parent / "engagements"
 
 
 class EnrichmentEngine:

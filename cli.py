@@ -72,12 +72,12 @@ def build_parser() -> argparse.ArgumentParser:
                        help="Action: create, list, or summary")
     eng_p.add_argument("--target", help="Target domain (required for create/summary)")
     eng_p.add_argument("--json", action="store_true", help="Output as JSON")
-    eng_p.add_argument("--base-dir", help="Engagements root (default: ./engagements)")
+    eng_p.add_argument("--base-dir", help="Engagements root (default: <skill root>/engagements)")
 
     # chain
     ch_p = sub.add_parser("chain", help="Show crossref chain state (who started, who is stale)")
     ch_p.add_argument("--target", required=True, help="Target domain")
-    ch_p.add_argument("--base-dir", help="Engagements root (default: ./engagements)")
+    ch_p.add_argument("--base-dir", help="Engagements root (default: <skill root>/engagements)")
     ch_p.add_argument("--json", action="store_true", help="Output as JSON")
 
     return p
@@ -324,7 +324,8 @@ def cmd_engagement(args: argparse.Namespace) -> int:
         # `create`/`summary`/`chain` all worked. A listing that disagrees with the
         # writer is worse than no listing: it reads as "engagement is gone".
         engagements_dir = Path(args.base_dir) if args.base_dir else Path(
-            os.environ.get("NOVAHAKU_ENGAGEMENT_DIR", "").strip() or "engagements"
+            os.environ.get("NOVAHAKU_ENGAGEMENT_DIR", "").strip()
+            or Path(__file__).resolve().parent / "engagements"
         )
         if not engagements_dir.exists():
             print("No engagements directory found")

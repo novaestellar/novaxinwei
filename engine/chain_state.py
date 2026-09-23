@@ -102,15 +102,20 @@ def _validate_target(target: str) -> None:
 
 
 def _default_root() -> str:
-    """Shared engagements root: NOVAHAKU_ENGAGEMENT_DIR, else ./engagements.
+    """Shared engagements root: NOVAHAKU_ENGAGEMENT_DIR, else <skill root>/engagements.
 
     Same precedence as novahaku's engagement.py / engage_runner.py and this
-    repo's engagement_output.py. Previously this used os.getcwd() only, so with
-    the env var set the two sides resolved different roots for one target and
-    each reported the other's chain.json as missing.
+    repo's engagement_output.py / results_reader.py / threat_intel.py. Anchoring
+    the default to the skill root (not CWD) keeps the two skills resolving the
+    same root no matter which directory the operator launches them from; a CWD-
+    relative default silently split one engagement across two roots whenever the
+    caller ran from a different directory, and each side then reported the
+    other's chain.json as missing.
     """
     env = os.environ.get("NOVAHAKU_ENGAGEMENT_DIR", "").strip()
-    return os.path.abspath(env) if env else os.path.join(os.getcwd(), "engagements")
+    if env:
+        return os.path.abspath(env)
+    return os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "engagements")
 
 
 def _chain_path(target: str, base_dir: Optional[str] = None) -> str:
