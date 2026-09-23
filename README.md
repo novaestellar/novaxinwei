@@ -428,6 +428,42 @@ NovaXinWei (新信微) 与 [Novahaku](https://github.com/novaestellar/novahaku) 
 | **互不侵入** | 新信微不写exploit代码,Novahaku不写爬虫代码 |
 | **侦察输出结构** | `recon.json` 包含: `subdomains[]`、`ports[]`、`tech_stack[]`、`waf_type`、`platforms[]`、`dorks_hits[]`、`raw_content[]` |
 | **测试输入约定** | 读取 `recon.json` 的 `subdomains`、`ports`、`tech_stack` 字段,据此自动选择测试模块 |
+| **入站契约** | 我方写入 `engagements/<target>/recon.json`,Novahaku 通过 `ReconReader` 读取 |
+| **出站契约** | Novahaku 写入 `engagements/<target>/results.json`(schema `novaxinwei.results.v1`),我方通过 `engine/results_reader.py` 读取 |
+| **共享账本** | `engagements/<target>/chain.json`(schema `novalabs.chain.v1`)记录双方贡献顺序,两侧各自实现、互不 import |
+
+**出站契约 (results.json) — 这是 Novahaku 回传结果的格式**
+
+envelope 与 `recon.json` 同形,载荷位于 `engagement` 与 `results` 下:
+
+```
+engagements/<target>/
+├── recon.json      # 我方写入 —— 侦察输出
+├── results.json    # Novahaku 写入 —— 漏洞测试结果(本文件)
+├── results.csv     # Novahaku 写入 —— 扁平孪生,便于表格处理
+└── chain.json      # 双方写入 —— 谁先开始、谁最后贡献
+```
+
+消费方**必须**使用 `engine/results_reader.py` 的访问器,不要自行解析原始 JSON:
+
+| 访问器 | 返回 |
+|---|---|
+| `read_results(target)` | 完整 dict,不存在/损坏返回 `None` |
+| `results_exist(target)` | `bool` |
+| `results_version(target)` | schema 版本,如 `novaxinwei.results.v1` |
+| `get_findings(target)` | findings 列表 |
+| `get_finding_titles(target)` | 标题列表 |
+| `get_severity_counts(target)` | `{severity: count}`,severity 为**小写**(`{"high": 1, "low": 1}`) |
+| `get_phase(target)` | Novahaku 结束时的阶段 |
+| `get_stats(target)` | 统计(含 `exploit_validated` / `exploit_dropped`) |
+| `get_evidence_files(target)` | 证据文件列表 |
+| `summarize(target)` | 一行人类可读摘要 |
+
+`read_results` 永不抛异常:文件缺失、损坏、二进制、非 dict 一律返回 `None`。
+这是刻意的 —— "Novahaku 尚未回传" 是正常状态,不是错误。
+
+所有访问器都遵循统一根目录优先级:显式 `base_dir` > `NOVAHAKU_ENGAGEMENT_DIR`
+> `./engagements`。与 Novahaku 侧完全一致,因此两个技能对同一目标解析出同一目录。
 
 ---
 
