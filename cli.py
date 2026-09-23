@@ -1,12 +1,18 @@
 #!/usr/bin/env python3
 """NovaXinWei CLI — unified entry point.
 
-Usage:
+Usage (all three forms work from anywhere):
     python -m novaxinwei fetch <url> [--timeout N] [--json]
-    python -m novaxinwei dorks shodan <target>
-    python -m novaxinwei dorks github <query>
-    python -m novaxinwei check
-    python -m novaxinwei fetch-parallel <url1> <url2> ... [--workers N] [--json]
+    python novaxinwei/cli.py fetch <url>
+    python novaxinwei/__main__.py fetch <url>
+
+`python -m novaxinwei` requires the *parent* directory on sys.path. That holds
+when the skill sits directly on sys.path, but a Hermes install puts it at
+skills/web/novaxinwei, so running `-m` from inside the skill root failed with
+"No module named novaxinwei" - and the four absolute `from novaxinwei.…` imports
+below failed the same way whenever this file was run directly. Adding the parent
+here makes all entry forms resolve identically, which is what __main__.py already
+did for itself.
 """
 from __future__ import annotations
 
@@ -15,6 +21,12 @@ import json
 import os
 import sys
 from typing import Optional
+
+# Ensure the package is importable no matter which entry point was used.
+_HERE = os.path.dirname(os.path.abspath(__file__))
+_PARENT = os.path.dirname(_HERE)
+if _PARENT not in sys.path:
+    sys.path.insert(0, _PARENT)
 
 
 def build_parser() -> argparse.ArgumentParser:
