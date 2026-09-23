@@ -51,8 +51,16 @@ desktop.ini
 *.old
 
 # Runtime data
-observations/
+#
+# observations/ is NOT blanket-ignored: fetch-2026-09-08.jsonl is a deliberate,
+# tracked work artifact (reference data for the fetch-chain, committed in
+# dd39b29). Ignoring the directory while the file stays in the index leaves the
+# rule and reality contradicting each other, so the log is excluded from the
+# ignore patterns instead. New runtime logs remain untracked.
+observations/*
+!observations/fetch-2026-09-08.jsonl
 *.jsonl
+!observations/fetch-2026-09-08.jsonl
 cve_cache/cve-feed.json
 runs/
 *.pid
@@ -67,11 +75,13 @@ runs/
 # runtime can carry target data (origin IP, WAF product, findings) and must
 # never be committed. Adding the rule BEFORE any writer exists means a first
 # test write can never reach the index.
-engagements/*/
-# Tracked under engagements/ are documents only. '!engagements/*.md' un-ignores
-# any *entry* ending in .md, including a directory - an engagement for a target
-# like app.md (Moldova) would then expose its whole tree. So: deny every file
-# that could hold engagement data, at any depth, before re-including documents.
+#
+# Ignore engagement data by *extension at any depth* rather than by ignoring
+# the target directory. Ignoring the directory first (engagements/*/) makes the
+# re-include rules below dead: git never descends into an excluded directory, so
+# no '!engagements/<target>/doc.md' can ever match and a new engagement's
+# documents silently become uncommittable. Denying data files at depth, then
+# re-including documents, achieves the same protection without that trap.
 engagements/**/*.json
 engagements/**/*.csv
 engagements/**/*.har
@@ -80,13 +90,8 @@ engagements/**/*.txt
 engagements/**/*.log
 engagements/**/*.lock
 engagements/**/*.tmp
+engagements/**/evidence/
 # Re-include tracked documents last, so the rules above cannot re-ignore them.
 !engagements/*.md
 !engagements/*/*.md
 !engagements/*/*/*.md
-engagements/**/*.json
-engagements/**/*.csv
-engagements/**/*.har
-engagements/**/*.html
-engagements/**/evidence/
-engagements/**/.lock

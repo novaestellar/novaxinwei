@@ -38,7 +38,10 @@ pip install -r requirements.txt  # 如果存在
 
 ### 方法2: Hermes Agent 技能安装
 
-放入 `~/.hermes/skills/security/novaxinwei/` 即可自动加载。
+放入 `~/.hermes/skills/web/novaxinwei/` 即可自动加载。
+
+> 注意:Novahaku 位于 `skills/security/novahaku/`,本技能位于 `skills/web/novaxinwei/`。
+> 两者通过 `engagements/<target>/` 下的文件通信,**不**通过 Python import。
 
 ## 环境变量配置
 
@@ -48,6 +51,21 @@ cp .env.example .env
 
 # 至少填写 GitHub Dorks 配置
 # GH_TOKEN=""  (可选, 提升 GitHub API 限额 60/h → 5000/h)
+```
+
+### 与 Novahaku 的共享根目录
+
+`NOVAHAKU_ENGAGEMENT_DIR` 决定 `engagements/` 根目录,两个技能都读它:
+
+- 不设置时:两边都解析到 **各自的** `<skill root>/engagements`
+  (锚定到脚本文件位置,与 CWD 无关)
+- 设置时:两边都解析到该变量指向的目录 —— **必须设成同一个值**
+
+把 engagements 放在别处时才需要设置。只在一边设置会导致一侧写、
+另一侧读不到,并表现为 "还没有结果" 而不是报错。
+
+```bash
+# NOVAHAKU_ENGAGEMENT_DIR=/path/to/shared/engagements
 ```
 
 ## 验证安装

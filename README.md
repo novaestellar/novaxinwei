@@ -463,7 +463,9 @@ engagements/<target>/
 这是刻意的 —— "Novahaku 尚未回传" 是正常状态,不是错误。
 
 所有访问器都遵循统一根目录优先级:显式 `base_dir` > `NOVAHAKU_ENGAGEMENT_DIR`
-> `./engagements`。与 Novahaku 侧完全一致,因此两个技能对同一目标解析出同一目录。
+> `<skill root>/engagements`。与 Novahaku 侧完全一致 —— 两边都把默认值锚定到各自的
+skill root(不是 CWD),因此从任意工作目录启动都会解析出同一目录。CWD 相对的默认值
+会让两个技能在不同目录启动时把同一个 engagement 拆到两个根目录。
 
 ---
 
