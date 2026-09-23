@@ -77,6 +77,28 @@ vim .env
 
 ### 验证安装
 
+先读这一节再照抄命令 —— `python -m novaxinwei` 要求**父目录**在 `sys.path` 上。技能装在
+`skills/web/novaxinwei` 时，`cd` 进技能根目录再跑 `-m` 会得到
+`No module named novaxinwei`。这是 Python `-m` 的正常行为，不是 bug。
+
+三种等效入口，任选其一：
+
+```bash
+# A. 从父目录跑 -m (推荐: 不依赖 CWD 之外的任何东西)
+cd <安装目录>/skills/web
+python -m novaxinwei check
+
+# B. 从技能根目录直接跑脚本 (最省事)
+cd <安装目录>/skills/web/novaxinwei
+python __main__.py check
+
+# C. 显式给 PYTHONPATH, 这样在任何 CWD 都能跑 -m
+export PYTHONPATH=<安装目录>/skills/web
+python -m novaxinwei check
+```
+
+下面所有示例都用 A 的形式 (`python -m novaxinwei ...`)，前提是 CWD 已在父目录。
+
 ```bash
 # 检查版本
 python -m novaxinwei --help

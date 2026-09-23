@@ -48,6 +48,21 @@ Web recon engine with WAF bypass, parallel fetch, and dork databases.
 
 ## Quick Start
 
+`python -m novaxinwei` 要求**父目录**在 `sys.path` 上。技能装在 `skills/web/novaxinwei`
+时，`cd` 进技能根目录再跑 `-m` 会得到 `No module named novaxinwei` —— 这是 Python `-m`
+的正常行为，不是 bug。三种等效入口如下，下文示例默认 CWD 已在父目录，或改用 B/C：
+
+```bash
+cd <安装目录>/skills/web                 # A. 从父目录跑 -m
+python -m novaxinwei check
+
+cd <安装目录>/skills/web/novaxinwei      # B. 直接跑脚本，任意 CWD 均可
+python __main__.py check
+
+export PYTHONPATH=<安装目录>/skills/web  # C. 显式路径，任意 CWD 都能跑 -m
+python -m novaxinwei check
+```
+
 ```bash
 # Check channel availability
 python -m novaxinwei check
