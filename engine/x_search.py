@@ -285,5 +285,57 @@ def main() -> int:
     return 0 if result.ok else 1
 
 
+def _selftest() -> int:
+    """Self-check pure helpers. No network egress: search/discovery/validation
+    are NOT invoked — only URL extraction, canonicalization, and interleave
+    ordering are exercised."""
+    checks: list[tuple[str, bool]] = []
+
+    # _extract_status_urls: handles www/x/twitter, status/statuses, encoded
+    html = ('<a href="https://www.x.com/alice/status/1234567890123456789">t</a> '
+            'https://twitter.com/bob/statuses/9876543210987654321 '
+            'https://x.com/carol/status/111')
+    urls = _extract_status_urls(html)
+    checks.append(("extract finds 3", len(urls) == 3))
+    checks.append(("extract canonicalizes www", urls[0] == "https://x.com/alice/status/1234567890123456789"))
+    checks.append(("extract canonicalizes twitter/statuses", urls[1] == "https://x.com/bob/status/9876543210987654321"))
+    checks.append(("extract dedupes", len(_extract_status_urls("https://x.com/a/status/1 https://x.com/a/status/1")) == 1))
+
+    # escaped slash handling
+    esc = 'https:\\/\\/x.com\\/a\\/status\\/123'
+    checks.append(("extract unescapes slashes", _extract_status_urls(esc) == ["https://x.com/a/status/123"]))
+
+    # HTML-entity + percent-encoded
+    enc = "https://x.com/a/status/%20"  # no digits -> no match
+    checks.append(("extract ignores non-digit status", _extract_status_urls(enc) == []))
+
+    # _canonical_status_url
+    checks.append(("canonical x.com", _canonical_status_url("https://x.com/a/status/5") == "https://x.com/a/status/5"))
+    checks.append(("canonical twitter", _canonical_status_url("https://twitter.com/a/status/5") == "https://x.com/a/status/5"))
+    checks.append(("canonical None for non-status", _canonical_status_url("https://x.com/a") is None))
+    checks.append(("canonical None for other site", _canonical_status_url("https://example.test/a/status/5") is None))
+
+    # _interleave_discoveries round-robins without dupes
+    disc = [("brave", ["u1", "u2", "u3"]), ("yahoo", ["u2", "u4"])]
+    ordered = _interleave_discoveries(disc)
+    checks.append(("interleave keeps all unique", len(ordered) == 4))
+    checks.append(("interleave unique-first order", ordered.index("u1") < ordered.index("u3")))
+    checks.append(("interleave no duplicates", len(ordered) == len(set(ordered))))
+    # duplicate url (u2 in both) appears once
+    checks.append(("interleave dedupes cross-source", ordered.count("u2") == 1))
+    # empty
+    checks.append(("interleave empty", _interleave_discoveries([]) == []))
+
+    failed = [name for name, ok in checks if not ok]
+    for name, ok in checks:
+        print(f"  [{'OK' if ok else 'FAIL'}] {name}")
+    if failed:
+        print(f"[!] x_search selftest: {len(failed)}/{len(checks)} failed: {failed}")
+        return 1
+    print(f"[+] x_search selftest: {len(checks)}/{len(checks)} checks passed")
+    return 0
+
+
 if __name__ == "__main__":
-    raise SystemExit(main())
+    import sys
+    sys.exit(_selftest())
