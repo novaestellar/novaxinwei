@@ -55,19 +55,24 @@ URL_ALLOWLIST = {
     # Generic HTTP test endpoint for infrastructure / transport tests.
     "httpbin.org",
     # Reserved TLDs / literals used only in test fixtures (RFC 2606).
-    # `.test` and `.invalid` are reserved for documentation/testing; the
-    # numeric literals are loopback / RFC1918 / metadata / public-IP fixtures
-    # that the SSRF tests must enumerate. None of these are a target site.
-    "a.test", "site.test", "x.test", "nonexistent.invalid",
+    # `.test` and `.invalid` hosts are covered wholesale by
+    # _ALLOWED_HOST_SUFFIXES; the numeric literals below are loopback /
+    # RFC1918 / metadata / public-IP fixtures that the SSRF tests must
+    # enumerate. None of these is a target site.
     "0.0.0.0", "10.0.0.5", "172.16.0.1", "192.168.1.1",
     "169.254.169.254", "1.1.1.1", "93.184.216.34",
     # Single-label / bare hosts used purely as unit-test fixtures for URL
     # parsing and masking (no DNS, never fetched). `x.com` / `other.com` /
     # `facebook.com` / `amazon.com` appear only as neutral examples in
     # self-test data, not as a target-site preference.
-    "x", "a", "user", "onlyuser", "other.com", "x.com", "b.test",
-    "www.a.test", "facebook.com", "amazon.com", "twitter.com", "microsoft.com",
+    "x", "a", "user", "onlyuser", "other.com", "x.com", "www.x.com",
+    "facebook.com", "amazon.com", "twitter.com", "microsoft.com",
 }
+
+# Host suffixes that are always allowed: RFC 2606 / RFC 6761 reserved names
+# (`.test`, `.invalid`, `.example`) and the documentation example domains.
+# These cannot resolve, so they cannot represent a target-site preference.
+_ALLOWED_HOST_SUFFIXES = (".example.com", ".example.org", ".test", ".invalid")
 
 # Files / dirs that must be clean.
 SCAN_ROOTS_STRICT_OFF = ["engine"]
@@ -140,7 +145,7 @@ def _scan_file(path: Path, root: Path) -> list[str]:
             host = host.split("//", 1)[-1].split("/", 1)[0]
             if host in URL_ALLOWLIST:
                 continue
-            if host.endswith(".example.com") or host.endswith(".example.org"):
+            if host.endswith(_ALLOWED_HOST_SUFFIXES):
                 continue
             violations.append(f"{rel}:{lineno} — hardcoded host `{host}` in: {line.strip()[:120]}")
             break
