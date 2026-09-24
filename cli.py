@@ -9,10 +9,14 @@ Usage (all three forms work from anywhere):
 `python -m novaxinwei` requires the *parent* directory on sys.path. That holds
 when the skill sits directly on sys.path, but a Hermes install puts it at
 skills/web/novaxinwei, so running `-m` from inside the skill root failed with
-"No module named novaxinwei" - and the four absolute `from novaxinwei.…` imports
-below failed the same way whenever this file was run directly. Adding the parent
-here makes all entry forms resolve identically, which is what __main__.py already
-did for itself.
+"No module named novaxinwei". Adding the parent here makes all entry forms
+resolve identically, which is what __main__.py already did for itself.
+
+Submodules are imported as `engine.*` / `channels.*` (not `novaxinwei.engine.*`),
+because in this repo the package root IS the directory holding engine/ and
+channels/ — there is no `novaxinwei` package component. The old
+`from novaxinwei.engine…` form only worked by accident, when the parent
+happened to be importable under that exact name.
 """
 from __future__ import annotations
 
@@ -96,8 +100,8 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def cmd_fetch(args: argparse.Namespace) -> int:
-    from novaxinwei.engine.fetch_chain import fetch
-    from novaxinwei.engine.url_masking import mask_url
+    from engine.fetch_chain import fetch
+    from engine.url_masking import mask_url
 
     try:
         result = fetch(
@@ -182,7 +186,7 @@ def _save_fetch_engagement(args: argparse.Namespace, result) -> int:
 
 
 def cmd_fetch_parallel(args: argparse.Namespace) -> int:
-    from novaxinwei.channels import fetch_parallel
+    from channels import fetch_parallel
     results = fetch_parallel(args.urls, timeout=args.timeout, max_workers=args.workers)
     if args.json:
         print(json.dumps(results, ensure_ascii=False, indent=2))
@@ -190,7 +194,9 @@ def cmd_fetch_parallel(args: argparse.Namespace) -> int:
         for url, r in results.items():
             status = "✓" if r["ok"] else "✗"
             print(f"{status} {url[:80]}{'...' if len(url) > 80 else ''}")
-    return 0
+    # Non-zero when nothing succeeded, so a script or CI step does not read a
+    # fully-failed parallel fetch as success.
+    return 0 if results and any(r["ok"] for r in results.values()) else 1
 
 
 def cmd_dorks(args: argparse.Namespace) -> int:
@@ -240,7 +246,7 @@ def _cmd_github(args: argparse.Namespace) -> int:
 
 
 def cmd_check(args: argparse.Namespace) -> int:
-    from novaxinwei.channels import ALL_CHANNELS
+    from channels import ALL_CHANNELS
     for ch in ALL_CHANNELS:
         ok = ch.check()
         status = "✓" if ok else "✗"
