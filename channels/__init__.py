@@ -64,7 +64,7 @@ def fetch_parallel(urls: list[str], timeout: int = 15, max_workers: int = 5) -> 
 
     Returns: {url: {"ok": bool, "content": str, "error": str|None}}
     """
-    from novaxinwei.engine.phase0 import route as phase0_route
+    from engine.phase0 import route as phase0_route
     results = {}
 
     def _fetch_one(url: str) -> tuple[str, dict]:
@@ -72,7 +72,10 @@ def fetch_parallel(urls: list[str], timeout: int = 15, max_workers: int = 5) -> 
             result = phase0_route(url, timeout=timeout)
             if result and result.get("ok"):
                 return url, {"ok": True, "content": result["content"], "error": None}
-            return url, {"ok": False, "content": "", "error": "phase0 route failed"}
+            # route() returns None when no platform router matches this host;
+            # that is "unrouted", not a failure of the router table itself.
+            why = "no platform router for host" if result is None else str(result.get("error") or "route returned not-ok")
+            return url, {"ok": False, "content": "", "error": why}
         except Exception as e:
             return url, {"ok": False, "content": "", "error": str(e)}
 
