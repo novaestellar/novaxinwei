@@ -698,3 +698,77 @@ def route(url: str, *, timeout: int = 15) -> Optional[dict]:
     if platform is None:
         return None
     return _ROUTERS[platform](url, timeout)
+
+
+def _selftest() -> int:
+    """Self-check pure helpers. No network egress: platform fetchers are NOT
+    invoked — only detection, host parsing, attempt-shape, and router-table
+    completeness are exercised."""
+    checks: list[tuple[str, bool]] = []
+
+    # _host: strips literal "www." only
+    checks.append(("_host plain", _host("https://example.com/a") == "example.com"))
+    checks.append(("_host www strip", _host("https://www.example.com/a") == "example.com"))
+    checks.append(("_host not-www subdomain kept", _host("https://m.example.com/a") == "m.example.com"))
+    checks.append(("_host lowercases", _host("https://Www.Example.com/a") == "example.com"))
+    checks.append(("_host empty on no host", _host("not a url") == ""))
+
+    # _detect: all 15 platforms
+    detect_cases = [
+        ("https://www.reddit.com/r/x/", "reddit"),
+        ("https://redd.it/abc", "reddit"),
+        ("https://x.com/u", "x"),
+        ("https://twitter.com/u", "x"),
+        ("https://youtube.com/watch?v=1", "youtube"),
+        ("https://youtu.be/abc", "youtube"),
+        ("https://threads.net/@u", "threads"),
+        ("https://www.xiaohongshu.com/explore", "xiaohongshu"),
+        ("https://xhslink.com/a", "xiaohongshu"),
+        ("https://www.bilibili.com/video/1", "bilibili"),
+        ("https://b23.tv/abc", "bilibili"),
+        ("https://www.v2ex.com/t/1", "v2ex"),
+        ("https://www.facebook.com/u", "facebook"),
+        ("https://fb.watch/abc", "facebook"),
+        ("https://www.instagram.com/u", "instagram"),
+        ("https://www.linkedin.com/in/u", "linkedin"),
+        ("https://www.cnblogs.com/u", "cnblogs"),
+        ("https://blog.csdn.net/u", "csdn"),
+        ("https://segmentfault.com/q/1", "segmentfault"),
+        ("https://so.gitee.com/search?q=x", "so_gitee"),
+        ("https://codeberg.org/u/repo", "codeberg"),
+    ]
+    for url, expect in detect_cases:
+        checks.append((f"_detect {url}", _detect(url) == expect))
+
+    # _detect: negatives
+    for url in ["https://example.test/x", "https://unknown.test/a", "not a url", ""]:
+        checks.append((f"_detect None for {url!r}", _detect(url) is None))
+
+    # _attempt shape
+    a = _attempt("reddit", "rss", True, 200, "0123456789", "note")
+    checks.append(("_attempt bytes counts", a["bytes"] == 10))
+    checks.append(("_attempt keys", sorted(a) == ["bytes", "note", "ok", "platform", "route", "status"]))
+
+    # router table: every detect case has a registered router
+    checks.append(("_ROUTERS has 15 platforms", len(_ROUTERS) == 15))
+    for p in ["reddit", "x", "youtube", "threads", "xiaohongshu", "bilibili", "v2ex",
+              "facebook", "instagram", "linkedin", "cnblogs", "csdn", "segmentfault",
+              "so_gitee", "codeberg"]:
+        checks.append((f"_ROUTERS[{p}] mapped", p in _ROUTERS))
+
+    # route() returns None for non-platform without calling any fetcher
+    checks.append(("route None for unknown", route("https://example.test/x") is None))
+
+    failed = [name for name, ok in checks if not ok]
+    for name, ok in checks:
+        print(f"  [{'OK' if ok else 'FAIL'}] {name}")
+    if failed:
+        print(f"[!] phase0 selftest: {len(failed)}/{len(checks)} failed: {failed}")
+        return 1
+    print(f"[+] phase0 selftest: {len(checks)}/{len(checks)} checks passed")
+    return 0
+
+
+if __name__ == "__main__":
+    import sys
+    sys.exit(_selftest())
