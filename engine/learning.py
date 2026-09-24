@@ -177,3 +177,84 @@ def record_failure(url: str, device_class: str, penalize: bool,
     else:
         entry["last_used"] = _now().isoformat()
     save(_prune(data), path)
+
+
+def _selftest() -> int:
+    """Self-check. Uses a temp store file; never touches the real ~/.novaxinwei
+    learned.json. No network egress."""
+    import tempfile
+
+    checks: list[tuple[str, bool]] = []
+
+    # key_for normalizes host + device class
+    checks.append(("key_for host only", key_for("https://Example.com:8443/x", "desktop") == "example.com::desktop"))
+    checks.append(("key_for mobile", key_for("https://example.com/x", "mobile") == "example.com::mobile"))
+    checks.append(("key_for non-mobile is desktop", key_for("https://example.com/x", "tablet") == "example.com::desktop"))
+
+    # is_real_failure taxonomy
+    for reason, expected in [("exhausted", True), ("challenge", True), ("blocked", True),
+                             ("rate_limited", False), ("unknown", False), ("budget", False),
+                             ("auth_required", False), ("not_found", False), ("success", False),
+                             ("", False), (None, False)]:
+        checks.append((f"is_real_failure {reason!r}", is_real_failure(reason) is expected))
+
+    with tempfile.TemporaryDirectory() as td:
+        store = os.path.join(td, "learned.json")
+
+        # empty store: lookup None, load {}
+        checks.append(("load missing -> {}", load(store) == {}))
+        checks.append(("lookup empty -> None", lookup("https://x.test/", "desktop", path=store) is None))
+
+        # record success + lookup roundtrip
+        route = {"impersonate": "chrome", "phase": "p1"}
+        record_success("https://x.test/a", "desktop", route, path=store)
+        got = lookup("https://x.test/b", "desktop", path=store)   # same host, other path
+        checks.append(("lookup returns route", got == route))
+        data = load(store)
+        e = data["x.test::desktop"]
+        checks.append(("success resets fails", e["consecutive_fails"] == 0))
+        checks.append(("success counts wins", e["wins"] == 1))
+        checks.append(("last_success set", bool(e.get("last_success"))))
+
+        # same route twice -> wins incremented, not reset
+        record_success("https://x.test/c", "desktop", route, path=store)
+        checks.append(("same route increments wins", load(store)["x.test::desktop"]["wins"] == 2))
+
+        # different route -> wins reset to 1
+        record_success("https://x.test/d", "desktop", {"impersonate": "safari", "phase": "p2"}, path=store)
+        checks.append(("new route resets wins", load(store)["x.test::desktop"]["wins"] == 1))
+
+        # failure strike: one penalize -> still present; second -> evicted
+        record_success("https://x.test/e", "desktop", route, path=store)
+        record_failure("https://x.test/f", "desktop", penalize=True, path=store)
+        checks.append(("one strike keeps entry", "x.test::desktop" in load(store)))
+        record_failure("https://x.test/g", "desktop", penalize=True, path=store)
+        checks.append(("two strikes evict", "x.test::desktop" not in load(store)))
+
+        # non-penalizing failure refreshes without evicting
+        record_success("https://y.test/", "desktop", route, path=store)
+        record_failure("https://y.test/n", "desktop", penalize=False, path=store)
+        checks.append(("non-penalize keeps entry", "y.test::desktop" in load(store)))
+
+        # record_failure on unknown host is a no-op (no crash)
+        record_failure("https://z.test/", "desktop", penalize=True, path=store)
+        checks.append(("failure on unknown host no-op", True))
+
+        # corrupted store -> load {}
+        with open(store, "w", encoding="utf-8") as f:
+            f.write("{not json")
+        checks.append(("corrupt store -> {}", load(store) == {}))
+
+    failed = [name for name, ok in checks if not ok]
+    for name, ok in checks:
+        print(f"  [{'OK' if ok else 'FAIL'}] {name}")
+    if failed:
+        print(f"[!] learning selftest: {len(failed)}/{len(checks)} failed: {failed}")
+        return 1
+    print(f"[+] learning selftest: {len(checks)}/{len(checks)} checks passed")
+    return 0
+
+
+if __name__ == "__main__":
+    import sys
+    sys.exit(_selftest())

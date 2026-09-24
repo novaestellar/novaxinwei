@@ -204,3 +204,74 @@ def enrich_recon(target: str, level: str = "basic",
     rename so existing callers of enrich_target() keep working.
     """
     return enrich_target(target, level=level, engagements_dir=engagements_dir)
+
+
+def _selftest() -> int:
+    """Self-check. Uses a temp engagements dir; never touches the real tree.
+    No network egress: DNS resolution is wrapped in HAS_SOCKET, and the
+    fixture target is under .test so socket resolution is skipped anyway."""
+    import tempfile
+
+    checks: list[tuple[str, bool]] = []
+
+    with tempfile.TemporaryDirectory() as td:
+        target_dir = Path(td) / "example.test"
+        target_dir.mkdir(parents=True)
+        (target_dir / "recon.json").write_text(
+            json.dumps({"target": "example.test", "recon": {"hosts": ["a"]}}),
+            encoding="utf-8",
+        )
+
+        eng = EnrichmentEngine(td)
+        out = eng.enrich("example.test", level="full")
+        checks.append(("error absent on existing recon", "error" not in out))
+        checks.append(("basic adds dns", "dns" in out["recon"]))
+        checks.append(("dns target recorded", out["recon"]["dns"]["target"] == "example.test"))
+        checks.append(("enhanced adds whois", "whois" in out["recon"]))
+        checks.append(("full adds certificates", "certificates" in out["recon"]))
+        checks.append(("metadata enrichment stamped", out["metadata"]["enrichment"]["level"] == "full"))
+        checks.append(("metadata timestamp ends Z", out["metadata"]["enrichment"]["timestamp"].endswith("Z")))
+
+        # level gating: basic must not add whois/certificates
+        out_basic = eng.enrich("example.test", level="basic")
+        checks.append(("basic skips whois", "whois" not in out_basic["recon"]))
+        checks.append(("basic skips certificates", "certificates" not in out_basic["recon"]))
+
+        # enhanced gating
+        out_enh = eng.enrich("example.test", level="enhanced")
+        checks.append(("enhanced has whois", "whois" in out_enh["recon"]))
+        checks.append(("enhanced skips certificates", "certificates" not in out_enh["recon"]))
+
+        # missing target
+        out_missing = eng.enrich("nope.test")
+        checks.append(("missing target returns error", "error" in out_missing))
+
+        # invalid level: no enrichment keys
+        out_bad = eng.enrich("example.test", level="bogus")
+        checks.append(("bogus level no dns", "dns" not in out_bad["recon"]))
+        checks.append(("bogus level still stamps metadata", out_bad["metadata"]["enrichment"]["level"] == "bogus"))
+
+        # save_enriched writes file
+        p = eng.save_enriched("example.test", out)
+        checks.append(("save_enriched writes file", p.exists()))
+        checks.append(("save_enriched path name", p.name == "recon_enriched.json"))
+        saved = json.loads(p.read_text(encoding="utf-8"))
+        checks.append(("saved is valid json", isinstance(saved, dict)))
+
+        # convenience funcs route to the same engine
+        d = enrich_recon("example.test", level="basic", engagements_dir=td)
+        checks.append(("enrich_recon alias works", "dns" in d["recon"]))
+
+    failed = [name for name, ok in checks if not ok]
+    for name, ok in checks:
+        print(f"  [{'OK' if ok else 'FAIL'}] {name}")
+    if failed:
+        print(f"[!] enrichment selftest: {len(failed)}/{len(checks)} failed: {failed}")
+        return 1
+    print(f"[+] enrichment selftest: {len(checks)}/{len(checks)} checks passed")
+    return 0
+
+
+if __name__ == "__main__":
+    import sys
+    sys.exit(_selftest())
