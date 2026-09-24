@@ -144,5 +144,63 @@ def main(argv: list[str] | None = None) -> int:
     return 0 if result.ok else 1
 
 
+def _selftest() -> int:
+    """Self-check the CLI surface. No network: fetch() is NOT invoked with a
+    real URL; parser behavior and the fatal-error path are exercised."""
+    import io as _io
+    import contextlib as _cl
+
+    checks: list[tuple[str, bool]] = []
+
+    # parser defaults
+    p = build_parser()
+    args = p.parse_args(["https://example.test/"])
+    checks.append(("parser default device auto", args.device == "auto"))
+    checks.append(("parser default timeout 25", args.timeout == 25))
+    checks.append(("parser default max_attempts None", args.max_attempts is None))
+    checks.append(("parser default selectors None", args.selectors is None))
+    checks.append(("parser default json False", args.json is False))
+    checks.append(("parser default trace False", args.trace is False))
+    checks.append(("parser default enable flags True", args.no_playwright is False and args.no_phase0 is False
+                   and args.no_extract is False and args.no_retry is False and args.no_markdown is False
+                   and args.maincontent is False))
+
+    # parser selection
+    args2 = p.parse_args(["u", "--device", "mobile", "--timeout", "9", "--max-attempts", "3",
+                          "--json", "--trace", "--selector", "h1", "--selector", ".x",
+                          "--no-playwright", "--no-phase0", "--no-extract", "--no-retry",
+                          "--no-markdown", "--maincontent"])
+    checks.append(("parser mobile choice", args2.device == "mobile"))
+    checks.append(("parser timeout override", args2.timeout == 9))
+    checks.append(("parser max-attempts override", args2.max_attempts == 3))
+    checks.append(("parser repeated selectors", args2.selectors == ["h1", ".x"]))
+    checks.append(("parser flags set", args2.json and args2.trace and args2.no_playwright
+                   and args2.no_phase0 and args2.no_extract and args2.no_retry
+                   and args2.no_markdown and args2.maincontent))
+
+    # invalid device choice rejected
+    try:
+        p.parse_args(["u", "--device", "tablet"])
+        checks.append(("parser rejects bad device", False))
+    except SystemExit:
+        checks.append(("parser rejects bad device", True))
+
+    # missing URL rejected
+    try:
+        p.parse_args([])
+        checks.append(("parser requires url", False))
+    except SystemExit:
+        checks.append(("parser requires url", True))
+
+    failed = [name for name, ok in checks if not ok]
+    for name, ok in checks:
+        print(f"  [{'OK' if ok else 'FAIL'}] {name}")
+    if failed:
+        print(f"[!] engine.__main__ selftest: {len(failed)}/{len(checks)} failed: {failed}")
+        return 1
+    print(f"[+] engine.__main__ selftest: {len(checks)}/{len(checks)} checks passed")
+    return 0
+
+
 if __name__ == "__main__":
-    sys.exit(main())
+    sys.exit(_selftest())
