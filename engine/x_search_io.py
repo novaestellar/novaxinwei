@@ -44,3 +44,51 @@ def http_post_json(url: str, payload: dict[str, object], credential: str, timeou
         headers={"Authorization": f"Bearer {credential}", "Content-Type": "application/json"},
         json=payload,
     )
+
+
+def _selftest() -> int:
+    """Self-check credential resolution. No network, no real subprocess."""
+    import os
+
+    checks: list[tuple[str, bool]] = []
+
+    # env var path
+    os.environ["XAI_API_KEY"] = "  test-key-123  "
+    checks.append(("env key trimmed", resolve_xai_credential() == "test-key-123"))
+    os.environ.pop("XAI_API_KEY", None)
+
+    # no env, no omo on PATH in this env
+    # (shutil.which returns None here unless the lab has omo installed;
+    #  either way resolve must return None WITHOUT raising)
+    from unittest.mock import patch
+
+    with patch("shutil.which", return_value=None):
+        checks.append(("no omo -> None", resolve_xai_credential() is None))
+
+    # subprocess failure path: omo exists but returns non-zero
+    with patch("shutil.which", return_value="/fake/omo"):
+        with patch("subprocess.run") as fake_run:
+            proc = type("P", (), {"returncode": 1, "stdout": "  "})()
+            fake_run.return_value = proc
+            checks.append(("non-zero omo -> None", resolve_xai_credential() is None))
+
+    # subprocess success path
+    with patch("shutil.which", return_value="/fake/omo"):
+        with patch("subprocess.run") as fake_run:
+            proc = type("P", (), {"returncode": 0, "stdout": "  token-abc  \n"})()
+            fake_run.return_value = proc
+            checks.append(("zero omo -> token", resolve_xai_credential() == "token-abc"))
+
+    failed = [name for name, ok in checks if not ok]
+    for name, ok in checks:
+        print(f"  [{'OK' if ok else 'FAIL'}] {name}")
+    if failed:
+        print(f"[!] x_search_io selftest: {len(failed)}/{len(checks)} failed: {failed}")
+        return 1
+    print(f"[+] x_search_io selftest: {len(checks)}/{len(checks)} checks passed")
+    return 0
+
+
+if __name__ == "__main__":
+    import sys
+    sys.exit(_selftest())

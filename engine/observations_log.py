@@ -60,3 +60,75 @@ def log_fetch(url: str, result) -> None:
             handle.write(json.dumps(entry, ensure_ascii=False) + "\n")
     except Exception:
         return
+
+
+def _selftest() -> int:
+    """Self-check logging writes a masked, well-shaped JSONL row. Uses a
+    temp observation dir; never touches the real observations/ tree."""
+    import tempfile
+    from pathlib import Path
+
+    checks: list[tuple[str, bool]] = []
+
+    class Winner:
+        verdict = "strong_ok"
+        phase = "p2"
+        executor = "curl"
+        url_transform = "drop_www"
+        impersonate = "chrome"
+        referer = "https://site.test/a?token=SECRET"
+        status = 200
+        body_size = 1024
+
+    class Result:
+        trace = [Winner()]
+        ok = True
+        verdict = "strong_ok"
+        profile_used = "default"
+        planned_attempts = 3
+        stop_reason = ""
+
+    with tempfile.TemporaryDirectory() as td:
+        import os
+        os.environ["NOVAXINWEI_OBSERVATIONS_DIR"] = td
+        try:
+            log_fetch("https://site.test/path?api_key=LEAK", Result())
+            files = list(Path(td).glob("fetch-*.jsonl"))
+            checks.append(("writes one file", len(files) == 1))
+            if files:
+                line = files[0].read_text(encoding="utf-8").strip()
+                entry = json.loads(line)
+                checks.append(("json parses", isinstance(entry, dict)))
+                checks.append(("url masked", "LEAK" not in entry["url"]))
+                checks.append(("domain recorded", entry["domain"] == "site.test"))
+                checks.append(("ok flag", entry["ok"] is True))
+                checks.append(("winner verdict", entry["winner"]["phase"] == "p2"))
+                checks.append(("winner referer masked", "SECRET" not in entry["winner"]["referer"]))
+                checks.append(("attempts counted", entry["attempts"] == 1))
+        finally:
+            os.environ.pop("NOVAXINWEI_OBSERVATIONS_DIR", None)
+
+    # no result object -> best-effort return without raising
+    class Empty:
+        pass
+    with tempfile.TemporaryDirectory() as td:
+        os.environ["NOVAXINWEI_OBSERVATIONS_DIR"] = td
+        try:
+            log_fetch("https://site.test/x", Empty())   # must not raise
+            checks.append(("empty result tolerated", True))
+        finally:
+            os.environ.pop("NOVAXINWEI_OBSERVATIONS_DIR", None)
+
+    failed = [name for name, ok in checks if not ok]
+    for name, ok in checks:
+        print(f"  [{'OK' if ok else 'FAIL'}] {name}")
+    if failed:
+        print(f"[!] observations_log selftest: {len(failed)}/{len(checks)} failed: {failed}")
+        return 1
+    print(f"[+] observations_log selftest: {len(checks)}/{len(checks)} checks passed")
+    return 0
+
+
+if __name__ == "__main__":
+    import sys
+    sys.exit(_selftest())
