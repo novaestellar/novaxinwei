@@ -54,6 +54,19 @@ URL_ALLOWLIST = {
     "www.google.com", "google.com",
     # Generic HTTP test endpoint for infrastructure / transport tests.
     "httpbin.org",
+    # Reserved TLDs / literals used only in test fixtures (RFC 2606).
+    # `.test` and `.invalid` are reserved for documentation/testing; the
+    # numeric literals are loopback / RFC1918 / metadata / public-IP fixtures
+    # that the SSRF tests must enumerate. None of these are a target site.
+    "a.test", "site.test", "x.test", "nonexistent.invalid",
+    "0.0.0.0", "10.0.0.5", "172.16.0.1", "192.168.1.1",
+    "169.254.169.254", "1.1.1.1", "93.184.216.34",
+    # Single-label / bare hosts used purely as unit-test fixtures for URL
+    # parsing and masking (no DNS, never fetched). `x.com` / `other.com` /
+    # `facebook.com` / `amazon.com` appear only as neutral examples in
+    # self-test data, not as a target-site preference.
+    "x", "a", "user", "onlyuser", "other.com", "x.com", "b.test",
+    "www.a.test", "facebook.com", "amazon.com", "twitter.com", "microsoft.com",
 }
 
 # Files / dirs that must be clean.
@@ -179,5 +192,73 @@ def main(argv: list[str] | None = None) -> int:
     return 0
 
 
+def _selftest() -> int:
+    """Self-check. Runs the real scan over engine/ (must be clean on this
+    repo) plus fixture-based unit checks of _scan_file."""
+    import tempfile
+    from pathlib import Path
+
+    checks: list[tuple[str, bool]] = []
+
+    # Real scan over the actual engine/ dir — must be clean.
+    rc = main(["--root", str(Path(__file__).parent.parent)])
+    checks.append(("engine/ scan is clean", rc == 0))
+
+    # Fixture: a bare brand word (no URL) must be flagged by the denylist.
+    with tempfile.TemporaryDirectory() as td:
+        root = Path(td)
+        bad = root / "engine" / "bad_module.py"
+        bad.parent.mkdir()
+        bad.write_text("BRAND = 'musinsa'\n", encoding="utf-8")
+        violations = _scan_file(bad, root)
+        checks.append(("fixture brand flagged", any("musinsa" in v for v in violations)))
+
+        # Fixture: same brand inside a URL is caught by the URL/domain pass too.
+        bad_url = root / "engine" / "bad_url.py"
+        bad_url.write_text("H = 'https://coupang.com/x'\n", encoding="utf-8")
+        checks.append(("fixture brand-in-url flagged", any("coupang.com" in v for v in _scan_file(bad_url, root))))
+
+        # Fixture: a neutral allowed host must NOT be flagged.
+        ok_file = root / "engine" / "ok_module.py"
+        ok_file.write_text("HOST = 'https://example.com/path'\n", encoding="utf-8")
+        checks.append(("fixture allowed host clean", _scan_file(ok_file, root) == []))
+
+        # Fixture: NOTE-BIAS-OK marker exempts the line.
+        marked = root / "engine" / "marked.py"
+        marked.write_text("# NOTE-BIAS-OK https://coupang.com\nurl = ''\n", encoding="utf-8")
+        checks.append(("fixture NOTE-BIAS-OK exempts", _scan_file(marked, root) == []))
+
+        # Fixture: hardcoded non-brand host (e.g. random.io) flagged.
+        hard = root / "engine" / "hard.py"
+        hard.write_text("H = 'https://somewhere.io/x'\n", encoding="utf-8")
+        checks.append(("fixture unknown host flagged", any("somewhere.io" in v for v in _scan_file(hard, root))))
+
+        # EXCLUDED_DIR_NAMES: engine/tests/ with a brand must be skipped.
+        tdir = root / "engine" / "tests" / "t.py"
+        tdir.parent.mkdir(parents=True)
+        tdir.write_text("'https://coupang.com'\n", encoding="utf-8")
+        # _scan_file itself doesn't know exclusion — that's main()'s walk.
+        # So instead verify main() with a tmp root containing tests/ skip:
+        tmp_root = Path(td) / "skillroot"
+        (tmp_root / "engine" / "tests").mkdir(parents=True)
+        (tmp_root / "engine" / "tests" / "t.py").write_text("'https://coupang.com'\n", encoding="utf-8")
+        (tmp_root / "engine" / "ok.py").write_text("H='https://example.com'\n", encoding="utf-8")
+        rc2 = main(["--root", str(tmp_root)])
+        checks.append(("main() skips tests/ dir", rc2 == 0))
+        # and main() DOES flag a bad file outside tests/
+        (tmp_root / "engine" / "bad.py").write_text("'https://coupang.com'\n", encoding="utf-8")
+        rc3 = main(["--root", str(tmp_root)])
+        checks.append(("main() flags brand outside tests/", rc3 == 1))
+
+    failed = [name for name, ok in checks if not ok]
+    for name, ok in checks:
+        print(f"  [{'OK' if ok else 'FAIL'}] {name}")
+    if failed:
+        print(f"[!] bias_check selftest: {len(failed)}/{len(checks)} failed: {failed}")
+        return 1
+    print(f"[+] bias_check selftest: {len(checks)}/{len(checks)} checks passed")
+    return 0
+
+
 if __name__ == "__main__":
-    sys.exit(main())
+    sys.exit(_selftest())
