@@ -88,7 +88,11 @@ def search(repo_to_search=None,
            output_filename=None):
 
     if gh_dorks_file is None:
-        for path_prefix in ['.', os.path.join(prefix, 'github-dorks/')]:
+        # Candidates are checked relative to the invocation CWD *and* relative
+        # to this package, so `dorks/github-dorks.txt` is found whether the CLI
+        # is launched from the repo root or from inside dorks/.
+        _pkg_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        for path_prefix in ('.', _pkg_dir, os.path.join(prefix, 'github-dorks/')):
             filename = os.path.join(path_prefix, 'github-dorks.txt')
             if os.path.isfile(filename):
                 gh_dorks_file = filename
@@ -107,6 +111,12 @@ def search(repo_to_search=None,
         if output_filename else nullcontext(None)
     )
 
+    addendum = ''
+    if repo_to_search:
+        addendum = ' repo:' + repo_to_search
+    elif user_to_search:
+        addendum = ' user:' + user_to_search
+
     with open(gh_dorks_file, 'r', encoding='utf-8') as dork_file, output_context as output_file:
         # Write CSV Header
         csv_writer = None
@@ -120,12 +130,6 @@ def search(repo_to_search=None,
             dork = dork.strip()
             if not dork or dork[0] in '#;':
                 continue
-            addendum = ''
-            if repo_to_search:
-                addendum = ' repo:' + repo_to_search
-            elif user_to_search:
-                addendum = ' user:' + user_to_search
-
             dork = dork + addendum
             search_results = search_wrapper(gh.search_code(dork))
             try:
