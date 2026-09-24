@@ -1274,3 +1274,116 @@ def _format_summary(trace: list[Attempt], profile: Optional[str], stop_reason: s
     if profile in _R7_ELIGIBLE_PROFILES and challenge_count >= 3:
         return base + "\n" + R7_HINT
     return base
+
+
+def _selftest() -> int:
+    """Self-check pure helpers. No network egress: fetch()/_fetch_core are NOT
+    invoked — only referer strategies, TLS-family classification, plan
+    materialization, route extraction, quality/visible-text scoring, and the
+    dataclass shapes are exercised."""
+    checks: list[tuple[str, bool]] = []
+
+    # --- referer strategies ---
+    checks.append(("self_root", _self_root("https://a.test/x/y") == "https://a.test/"))
+    checks.append(("self_root keeps port", _self_root("https://a.test:8443/x") == "https://a.test:8443/"))
+    checks.append(("google_search", REFERER_STRATEGIES["google_search"]("u") == "https://www.google.com/"))
+    checks.append(("none", REFERER_STRATEGIES["none"]("u") == ""))
+
+    # --- TLS family classification ---
+    checks.append(("_family safari", _family("safari17_0") == "safari"))
+    checks.append(("_family chrome", _family("chrome124") == "chrome"))
+    checks.append(("_family unknown passthrough", _family("weird_tls") == "weird_tls"))
+    checks.append(("_is_mobile_tls ios", _is_mobile_tls("safari17_0_ios") is True))
+    checks.append(("_is_mobile_tls android", _is_mobile_tls("chrome_android") is True))
+    checks.append(("_is_mobile_tls desktop", _is_mobile_tls("chrome124") is False))
+
+    # --- isolate the profile-dependent bits with a fake profile ---
+    def make_profile():
+        return {
+            "tls_impersonate_candidates": [["safari17_0", "chrome124", "chrome120"],
+                                            ["firefox135"]],
+            "tls_impersonate_avoid": ["chrome120"],
+            "referer_strategies": ["self_root", "google_search"],
+            "url_transform_order": ["original", "drop_www"],
+            "known_bad_sizes": [1, 2, 3],
+        }
+
+    prof = make_profile()
+    plan = _plan_for_profile("https://www.a.test/x", "p1", prof, "desktop")
+    checks.append(("plan non-empty", len(plan) > 0))
+    imps = {c.impersonate for c in plan}
+    checks.append(("plan includes avoid target deprioritized", "chrome120" in imps))
+    # avoid target must appear AFTER its non-avoid sibling in the same group/depth
+    idx_chrome124 = [c.impersonate for c in plan].index("chrome124")
+    idx_chrome120 = [c.impersonate for c in plan].index("chrome120")
+    checks.append(("avoid deprioritized", idx_chrome120 > idx_chrome124))
+    mtransforms = {c.transform for c in plan}
+    checks.append(("plan has transforms", {"original", "drop_www"} <= mtransforms))
+    # _Cand.referer holds the strategy NAME (resolved to a URL only in _run_attempt)
+    refs = {c.referer for c in plan}
+    checks.append(("plan has both referer strategies", {"self_root", "google_search"} <= refs))
+
+    # mobile: mobile-only TLs + mobile transforms appended
+    plan_m = _plan_for_profile("https://www.a.test/x", "p1", make_profile(), "mobile")
+    m_imps = {c.impersonate for c in plan_m}
+    checks.append(("mobile plan has no desktop safari", "safari17_0" not in m_imps))
+    m_trans = {c.transform for c in plan_m}
+    checks.append(("mobile plan adds mobile_subdomain", "mobile_subdomain" in m_trans))
+
+    # desktop: strips mobile transforms
+    plan_d = _plan_for_profile("https://www.a.test/x", "p1", make_profile(), "desktop")
+    d_trans = {c.transform for c in plan_d}
+    checks.append(("desktop plan no mobile transforms", "mobile_subdomain" not in d_trans))
+
+    # --- _build_plan: probe combo removed, round-robin interleave, priority front ---
+    class FakeHit:
+        def __init__(self, pid): self.profile_id = pid
+    class FakeProfile:
+        def get(self, k, default=None):
+            return {} if k == "tls_impersonate_candidates" else default
+    profiles = {"p1": make_profile()}
+    plan2 = _build_plan("https://a.test/x", [FakeHit("p1")], profiles, "desktop",
+                        probe_impersonate="safari17_0", probe_referer="https://a.test/")
+    keys = {(c.impersonate, c.referer) for c in plan2}
+    checks.append(("probe combo removed", ("safari17_0", "https://a.test/") not in keys))
+    checks.append(("plan2 non-empty", len(plan2) > 0))
+    # priority front: with a priority matching a candidate, that candidate is first
+    plan3 = _build_plan("https://a.test/x", [FakeHit("p1")], profiles, "desktop",
+                        probe_impersonate="probeX", probe_referer="",
+                        priority={"transform": "original", "impersonate": "chrome124", "referer": "self_root"})
+    checks.append(("priority fronts matching route", len(plan3) > 1 and
+                   plan3[0].impersonate == "chrome124" and plan3[0].referer == "self_root"))
+
+    # --- _winning_route extraction ---
+    ok_att = Attempt(phase="grid", executor="curl_cffi", url="https://a.test/",
+                     url_transform="original", impersonate="chrome", referer="",
+                     verdict=Verdict.STRONG_OK.value)
+    bad_att = Attempt(phase="grid", executor="curl_cffi", url="https://a.test/",
+                      url_transform="original", impersonate="safari", referer="",
+                      verdict=Verdict.BLOCKED.value)
+    result = FetchResult(ok=True, trace=[bad_att, ok_att])
+    wr = _winning_route(result)
+    checks.append(("winning route found", wr is not None and wr["impersonate"] == "chrome"))
+    checks.append(("winning route phase grid", wr["phase"] == "grid"))
+
+    # --- quality / visible-text scoring ---
+    checks.append(("_quality_score empty 0", _quality_score("") == 0.0))
+    q = _quality_score("# Head\n\nSome text here.\n\n- a\n- b")
+    checks.append(("_quality_score positive for content", q > 0))
+    vt = _visible_text("<html><body><h1>Title</h1><script>var x=1</script><p>Body text</p></body></html>")
+    checks.append(("_visible_text strips tags", "Title" in vt and "Body text" in vt))
+    checks.append(("_visible_text strips script", "var x" not in vt))
+
+    failed = [name for name, ok in checks if not ok]
+    for name, ok in checks:
+        print(f"  [{'OK' if ok else 'FAIL'}] {name}")
+    if failed:
+        print(f"[!] fetch_chain selftest: {len(failed)}/{len(checks)} failed: {failed}")
+        return 1
+    print(f"[+] fetch_chain selftest: {len(checks)}/{len(checks)} checks passed")
+    return 0
+
+
+if __name__ == "__main__":
+    import sys
+    sys.exit(_selftest())
