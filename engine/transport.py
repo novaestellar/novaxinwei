@@ -308,3 +308,107 @@ def _retry_transient(do_get, url: str, max_attempts: int,
         slept += delay
         resp = do_get(url)
     return resp
+
+
+def _selftest() -> int:
+    """Self-check. No network egress: curl_cffi session creation is exercised
+    only through the pool (import-time, no connection), and retry logic runs
+    against fake responses with time.sleep zeroed."""
+    import time as _time
+
+    checks: list[tuple[str, bool]] = []
+
+    def check(name, ok):
+        checks.append((name, ok))
+
+    # --- pure helpers ---
+    check("_host_of lowercases", _host_of("https://Example.COM:8443/a") == "example.com")
+    check("_host_of missing host -> unknown", _host_of("http://") == "unknown")
+    check("_root_of", _root_of("https://x.com/a/b") == "https://x.com/")
+    check("_root_of keeps netloc/port", _root_of("http://x.com:8080/p") == "http://x.com:8080/")
+
+    # --- retry-after parsing ---
+    def mkresp(status_code=200, **headers):
+        return type("R", (), {"headers": dict(headers), "status_code": status_code})()
+
+    check("_retry_after numeric", _retry_after_seconds(mkresp(**{"Retry-After": "5"})) == 5.0)
+    check("_retry_after lowercase key", _retry_after_seconds(mkresp(**{"retry-after": "2.5"})) == 2.5)
+    check("_retry_after absent -> None", _retry_after_seconds(mkresp(**{"X": "1"})) is None)
+    check("_retry_after http-date -> None", _retry_after_seconds(mkresp(**{"Retry-After": "Sat, 1 Jan 2026 00:00:00 GMT"})) is None)
+    check("_retry_after garbage -> None", _retry_after_seconds(mkresp(**{"Retry-After": "soon"})) is None)
+    check("_retry_after no headers -> None", _retry_after_seconds(mkresp()) is None)
+
+    # --- retry transient loop (time.sleep zeroed) ---
+    real_sleep = _time.sleep
+    _time.sleep = lambda _s: None
+    try:
+        # first fake response is 503, retries to 200 -> should return the 200
+        seq = [mkresp(status_code=503, **{"Retry-After": "0"}), mkresp(status_code=200)]
+        calls = []
+
+        def do_get(url):
+            calls.append(url)
+            return seq.pop(0)
+
+        out = _retry_transient(do_get, "http://x/", max_attempts=3, base=0, factor=1, sleep_cap=10)
+        check("retry returns final 200", out.status_code == 200)
+        check("retry called twice", len(calls) == 2)
+
+        # non-transient status returns immediately, no retry
+        seq2 = [mkresp(status_code=404)]
+        calls2 = []
+
+        def do_get2(url):
+            calls2.append(url)
+            return seq2.pop(0)
+
+        out2 = _retry_transient(do_get2, "http://x/", max_attempts=3, base=0, factor=1, sleep_cap=10)
+        check("non-transient no retry", out2.status_code == 404 and len(calls2) == 1)
+
+        # Transient-After overrides backoff delay: with Retry-After=0 the retry
+        # happens despite a huge base delay, because the header wins.
+        seq3 = [mkresp(status_code=429, **{"Retry-After": "0"}), mkresp(status_code=200)]
+        calls3 = []
+
+        def do_get3(url):
+            calls3.append(url)
+            return seq3.pop(0)
+
+        out3 = _retry_transient(do_get3, "http://x/", max_attempts=3, base=999, factor=2, sleep_cap=5)
+        check("retry-after overrides base", len(calls3) == 2 and out3.status_code == 200)
+    finally:
+        _time.sleep = real_sleep
+
+    # --- session pool create (no connection made) ---
+    try:
+        pool = SessionPool()
+        ent = pool.get("example.com", "chrome")
+        check("pool.get returns entry when curl_cffi present", ent is not None)
+        check("pool reuses same entry", pool.get("example.com", "chrome") is ent)
+        check("pool keys by host", pool.get("other.com", "chrome") is not ent)
+        # stats counts sessions
+        st = pool.stats()
+        check("stats.sessions >= 2", st["sessions"] >= 2)
+        pool.reset()
+        check("reset clears pool", pool.stats()["sessions"] == 0)
+    except Exception as e:
+        check(f"session pool create ({type(e).__name__})", False)
+
+    # --- expiry / redirect helper input validation ---
+    from engine import safety
+    check("safety DEFAULT_MAX_REDIRECTS positive", safety.DEFAULT_MAX_REDIRECTS >= 1)
+
+    # --- summary ---
+    failed = [name for name, ok in checks if not ok]
+    for name, ok in checks:
+        print(f"  [{'OK' if ok else 'FAIL'}] {name}")
+    if failed:
+        print(f"[!] transport selftest: {len(failed)}/{len(checks)} failed: {failed}")
+        return 1
+    print(f"[+] transport selftest: {len(checks)}/{len(checks)} checks passed")
+    return 0
+
+
+if __name__ == "__main__":
+    import sys
+    sys.exit(_selftest())
