@@ -51,13 +51,20 @@ def _selftest() -> int:
     # ------------------------------------------------- source hygiene (BUG-27)
     with open(os.path.join(_HERE, "cli.py"), encoding="utf-8") as fh:
         src = fh.read()
-    # The import lines must use engine./channels., not novaxinwei.engine.
-    # The docstring mentions the old form, so check only real import statements.
+    # Imports must not hardcode either layout: `novaxinwei.engine.x` breaks in
+    # the repo, `engine.x` breaks in a Hermes skill install. Both go through
+    # cli._submodule, which tries engine.x then novaxinwei.engine.x. The
+    # docstring narrates the old broken form, so match statements only.
     bad_imports = [ln.strip() for ln in src.splitlines()
                    if ln.strip().startswith(("from novaxinwei", "import novaxinwei"))]
     checks.append(("no novaxinwei.* import statements", bad_imports == []))
-    checks.append(("imports engine.fetch_chain", "from engine.fetch_chain import" in src))
-    checks.append(("imports channels.fetch_parallel", "from channels import fetch_parallel" in src))
+    checks.append(("imports engine.fetch_chain via _submodule",
+                   "_submodule('engine.fetch_chain')" in src))
+    checks.append(("imports channels.fetch_parallel via _submodule",
+                   "_submodule('channels')" in src))
+    checks.append(("no bare engine./channels. imports left",
+                   not any(ln.strip().startswith(("from engine.", "from channels."))
+                           for ln in src.splitlines())))
 
     # ------------------------------------------------- build_parser
     p = cli.build_parser()

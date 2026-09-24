@@ -31,6 +31,28 @@ _HERE = os.path.dirname(os.path.abspath(__file__))
 _PARENT = os.path.dirname(_HERE)
 if _PARENT not in sys.path:
     sys.path.insert(0, _PARENT)
+if _HERE not in sys.path:
+    sys.path.insert(0, _HERE)
+
+
+def _submodule(dotted: str):
+    """Import a sibling submodule in either deployment layout.
+
+    Layout A (repo): this directory IS the package root, so `engine.x` /
+    `channels.x` resolve once _HERE is on sys.path.
+    Layout B (Hermes skill at skills/web/novaxinwei/): the directory is the
+    `novaxinwei` package, so the name needs that prefix.
+
+    One try/except here beats nine at the call sites, and a hard failure still
+    raises ImportError with both names visible.
+    """
+    import importlib
+    for name in (dotted, f"novaxinwei.{dotted}"):
+        try:
+            return importlib.import_module(name)
+        except ImportError:
+            continue
+    raise ImportError(f"cannot import {dotted} in this layout")
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -100,8 +122,8 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def cmd_fetch(args: argparse.Namespace) -> int:
-    from engine.fetch_chain import fetch
-    from engine.url_masking import mask_url
+    fetch = _submodule('engine.fetch_chain').fetch
+    mask_url = _submodule('engine.url_masking').mask_url
 
     try:
         result = fetch(
@@ -142,7 +164,7 @@ def _save_fetch_engagement(args: argparse.Namespace, result) -> int:
     the page was fetched, only the bookkeeping failed.
     """
     import sys as _sys
-    from engine.engagement_writer import write_engagement_chained
+    write_engagement_chained = _submodule('engine.engagement_writer').write_engagement_chained
 
     target = args.save_engagement
     version = "1.0"
@@ -172,7 +194,7 @@ def _save_fetch_engagement(args: argparse.Namespace, result) -> int:
     print(f"Engagement saved: {path}")
 
     if getattr(args, "enrich", False):
-        from engine.enrichment import EnrichmentEngine
+        EnrichmentEngine = _submodule('engine.enrichment').EnrichmentEngine
 
         try:
             engine = EnrichmentEngine()
@@ -186,7 +208,7 @@ def _save_fetch_engagement(args: argparse.Namespace, result) -> int:
 
 
 def cmd_fetch_parallel(args: argparse.Namespace) -> int:
-    from channels import fetch_parallel
+    fetch_parallel = _submodule('channels').fetch_parallel
     results = fetch_parallel(args.urls, timeout=args.timeout, max_workers=args.workers)
     if args.json:
         print(json.dumps(results, ensure_ascii=False, indent=2))
@@ -246,7 +268,7 @@ def _cmd_github(args: argparse.Namespace) -> int:
 
 
 def cmd_check(args: argparse.Namespace) -> int:
-    from channels import ALL_CHANNELS
+    ALL_CHANNELS = _submodule('channels').ALL_CHANNELS
     for ch in ALL_CHANNELS:
         ok = ch.check()
         status = "✓" if ok else "✗"
@@ -256,7 +278,7 @@ def cmd_check(args: argparse.Namespace) -> int:
 
 
 def cmd_enrich(args: argparse.Namespace) -> int:
-    from engine.enrichment import EnrichmentEngine
+    EnrichmentEngine = _submodule('engine.enrichment').EnrichmentEngine
     engine = EnrichmentEngine()
     enriched = engine.enrich(args.target, level=args.level)
     engine.save_enriched(args.target, enriched)
@@ -318,7 +340,7 @@ def cmd_chain(args: argparse.Namespace) -> int:
 
 
 def cmd_engagement(args: argparse.Namespace) -> int:
-    from engine.engagement_output import EngagementManager
+    EngagementManager = _submodule('engine.engagement_output').EngagementManager
     from pathlib import Path
 
     if args.action == "create":
@@ -360,7 +382,7 @@ def cmd_engagement(args: argparse.Namespace) -> int:
         if not args.target:
             print("Error: --target required for summary", file=sys.stderr)
             return 1
-        from engine.engagement_output import EngagementManager
+        EngagementManager = _submodule('engine.engagement_output').EngagementManager
         try:
             em = EngagementManager(args.target, base_dir=args.base_dir)
         except ValueError as e:

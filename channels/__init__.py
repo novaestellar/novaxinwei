@@ -64,7 +64,14 @@ def fetch_parallel(urls: list[str], timeout: int = 15, max_workers: int = 5) -> 
 
     Returns: {url: {"ok": bool, "content": str, "error": str|None}}
     """
-    from engine.phase0 import route as phase0_route
+    # This module must work in two layouts: the repo, where the package root IS
+    # the directory holding engine/ (so `engine.phase0`, and the parent dir is
+    # on sys.path), and a Hermes install at skills/web/novaxinwei/, where the
+    # same directory is itself the `novaxinwei` package (so `novaxinwei.engine`).
+    try:
+        from engine.phase0 import route as phase0_route
+    except ImportError:
+        from novaxinwei.engine.phase0 import route as phase0_route
     results = {}
 
     def _fetch_one(url: str) -> tuple[str, dict]:
