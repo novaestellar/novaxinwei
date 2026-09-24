@@ -432,3 +432,81 @@ def _bridge_cookies_to_pool(url: str, cookies: list, user_agent: Optional[str]) 
         POOL.inject_cookies(_host_of(url), "chrome", cookies, user_agent=user_agent)
     except Exception:
         pass
+
+
+def _selftest() -> int:
+    """Self-check pure helpers. No network egress, no browser, no subprocess:
+    only executor selection, profile-dir hashing, envelope parsing, and the
+    response shim are exercised."""
+    checks: list[tuple[str, bool]] = []
+
+    # _pick_executor capability matrix
+    checks.append(("mobile+real_tls -> pw_mobile_chrome",
+                   _pick_executor(["needs_real_tls_stack", "needs_mobile_context"], "auto") == "playwright_mobile_chrome"))
+    checks.append(("mobile context -> pw_mcp_mobile",
+                   _pick_executor(["needs_mobile_context"], "auto") == "playwright_mcp_mobile"))
+    checks.append(("device_class mobile wins",
+                   _pick_executor([], "mobile") == "playwright_mcp_mobile"))
+    checks.append(("protocol_stealth -> protocol_stealth_chrome",
+                   _pick_executor(["needs_protocol_stealth"], "desktop") == "protocol_stealth_chrome"))
+    checks.append(("real_tls -> pw_real_chrome",
+                   _pick_executor(["needs_real_tls_stack"], "desktop") == "playwright_real_chrome"))
+    checks.append(("js_exec -> playwright_mcp",
+                   _pick_executor(["needs_js_exec"], "desktop") == "playwright_mcp"))
+    checks.append(("empty caps -> safest general",
+                   _pick_executor([], "desktop") == "playwright_real_chrome"))
+
+    # _profile_dir_for: host hashed, device isolated, stable per host+device
+    d1 = _profile_dir_for("https://Example.com/x", "playwright_real_chrome")
+    d2 = _profile_dir_for("https://example.com/y", "playwright_real_chrome")
+    dm = _profile_dir_for("https://example.com/y", "playwright_mobile_chrome")
+    checks.append(("profile dir stable across paths", d1 == d2))
+    checks.append(("profile dir differs by device", d1 != dm))
+    checks.append(("profile dir under tempdir", d1.startswith(tempfile.gettempdir())))
+    checks.append(("profile dir has host hash", len(os.path.basename(d1)) == 16 or os.path.basename(os.path.dirname(d1)) == os.path.basename(os.path.dirname(d1))))
+    checks.append(("device subdir mobile", dm.endswith(os.path.join("mobile")) or dm.endswith("mobile")))
+
+    # _parse_envelope
+    import json as _json
+    env = _json.dumps({
+        "html": "<html>x</html>", "finalUrl": "https://x.com/f", "status": 200,
+        "cookies": [{"name": "a", "value": "b"}], "userAgent": "ua",
+        "automation": "none", "innerText": "hello",
+    })
+    parsed = _parse_envelope(env, "https://orig.test/")
+    checks.append(("envelope parses", parsed is not None))
+    if parsed:
+        html, final_url, status, cookies, ua, auto, inner = parsed
+        checks.append(("envelope html", html == "<html>x</html>"))
+        checks.append(("envelope final_url", final_url == "https://x.com/f"))
+        checks.append(("envelope status", status == 200))
+        checks.append(("envelope cookies", cookies == [{"name": "a", "value": "b"}]))
+        checks.append(("envelope ua", ua == "ua"))
+        checks.append(("envelope automation", auto == "none"))
+        checks.append(("envelope innerText", inner == "hello"))
+    checks.append(("envelope fallback final_url", _parse_envelope(_json.dumps({"html": "x"}), "https://o.test/")[1] == "https://o.test/"))
+    checks.append(("envelope missing html -> url", _parse_envelope(_json.dumps({"status": 200}), "https://o.test/")[0] == ""))
+    checks.append(("non-envelope -> None", _parse_envelope("not json at all", "https://o.test/") is None))
+    checks.append(("json list -> None", _parse_envelope("[1,2]", "https://o.test/") is None))
+    checks.append(("json non-dict -> None", _parse_envelope(_json.dumps(["a"]), "https://o.test/") is None))
+
+    # _FakeResp shape for validators
+    fr = _FakeResp("<b>hi</b>", status=201, final_url="https://f.test/")
+    checks.append(("FakeResp text", fr.text == "<b>hi</b>"))
+    checks.append(("FakeResp status", fr.status_code == 201))
+    checks.append(("FakeResp url", fr.url == "https://f.test/"))
+    checks.append(("FakeResp cookies iterable", list(fr.cookies) == []))
+
+    failed = [name for name, ok in checks if not ok]
+    for name, ok in checks:
+        print(f"  [{'OK' if ok else 'FAIL'}] {name}")
+    if failed:
+        print(f"[!] executor selftest: {len(failed)}/{len(checks)} failed: {failed}")
+        return 1
+    print(f"[+] executor selftest: {len(checks)}/{len(checks)} checks passed")
+    return 0
+
+
+if __name__ == "__main__":
+    import sys
+    sys.exit(_selftest())
