@@ -258,3 +258,94 @@ def create_engagement(target: str, recon_data: Optional[Dict[str, Any]] = None,
         em.write_metadata(stats)
 
     return em
+
+
+def _selftest() -> int:
+    """Self-check. Uses a temp base dir; never touches the real engagements/.
+    No network egress, no DNS."""
+    import tempfile
+
+    checks: list[tuple[str, bool]] = []
+    ok_target = "example.test"
+
+    # --- validate_target_name: rejects, never crashes ---
+    for bad, label in [("", "empty"), ("   ", "whitespace"), (" a", "leading space"),
+                       ("/abs", "leading slash"), ("../esc", "dotdot"), ("a\\b", "backslash"),
+                       ("a\x00b", "nul byte"), ("a<b", "angle bracket"), ("a|b", "pipe"),
+                       ("a:b", "colon"), ("a\tb", "control char"), ("x" * 300, "too long")]:
+        try:
+            validate_target_name(bad)
+            checks.append((f"reject {label}", False))
+        except ValueError:
+            checks.append((f"reject {label}", True))
+    checks.append(("accept plain host", validate_target_name("example.test") == "example.test"))
+
+    with tempfile.TemporaryDirectory() as td:
+        em = EngagementManager(ok_target, base_dir=td)
+        checks.append(("engagement_dir under base", str(em.engagement_dir).startswith(td)))
+        d = em.create_dirs()
+        checks.append(("create_dirs returns dir", d.exists()))
+        checks.append(("evidence tree exists", (em.engagement_dir / "evidence" / "breach").exists()))
+        checks.append(("recon dir exists", (em.engagement_dir / "recon").exists()))
+
+        # path escape blocked by _assert_inside_base
+        em2 = EngagementManager(ok_target, base_dir=td)
+        em2.engagement_dir = em2.base_dir.parent  # force escape
+        try:
+            em2.create_dirs()
+            checks.append(("escape blocked", False))
+        except ValueError:
+            checks.append(("escape blocked", True))
+
+        # write_recon roundtrip
+        p = em.write_recon({"hosts": ["a.test"]})
+        checks.append(("recon.json written", p.exists()))
+        data = json.loads(p.read_text(encoding="utf-8"))
+        checks.append(("recon has version", data["version"] == "1.0"))
+        checks.append(("recon target matches", data["target"] == ok_target))
+        checks.append(("recon source", data["source"] == "novaxinwei"))
+        checks.append(("recon timestamp Z", data["timestamp"].endswith("Z")))
+
+        # write_metadata
+        mp = em.write_metadata({"fetched": 3})
+        meta = json.loads(mp.read_text(encoding="utf-8"))
+        checks.append(("metadata stats", meta["stats"] == {"fetched": 3}))
+
+        # write_evidence
+        ev = em.write_evidence("breach", "sample.txt", "content")
+        checks.append(("evidence written", ev.exists()))
+        checks.append(("evidence content", ev.read_text(encoding="utf-8") == "content"))
+
+        # read_recon / exists
+        checks.append(("read_recon roundtrip", em.read_recon()["target"] == ok_target))
+        checks.append(("exists true", em.exists() is True))
+
+        # env-var root precedence
+        import os as _os
+        _os.environ["NOVAHAKU_ENGAGEMENT_DIR"] = td
+        try:
+            em3 = EngagementManager("env-target.test")
+            checks.append(("env dir precedence", str(em3.base_dir) == str(Path(td))))
+        finally:
+            _os.environ.pop("NOVAHAKU_ENGAGEMENT_DIR", None)
+
+        # convenience create_engagement
+        cm = create_engagement("conv.test", recon_data={"a": 1}, stats={"s": 1}, )
+        # base_dir defaults to skill-root/engagements — use explicit to stay in tmp:
+        em4 = EngagementManager("conv.test", base_dir=td)
+        em4.create_dirs()
+        checks.append(("manager construct ok", em4.exists()))
+
+    failed = [name for name, ok in checks if not ok]
+    for name, ok in checks:
+        print(f"  [{'OK' if ok else 'FAIL'}] {name}")
+    if failed:
+        print(f"[!] engagement_output selftest: {len(failed)}/{len(checks)} failed: {failed}")
+        return 1
+    print(f"[+] engagement_output selftest: {len(checks)}/{len(checks)} checks passed")
+    return 0
+
+
+if __name__ == "__main__":
+    import sys
+    sys.exit(_selftest())
