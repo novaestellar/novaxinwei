@@ -395,7 +395,11 @@ def _selftest() -> int:
         check(f"session pool create ({type(e).__name__})", False)
 
     # --- expiry / redirect helper input validation ---
-    from engine import safety
+    # Relative import, not `from engine import safety`: the parent package is
+    # `engine` only in the repo layout. As a skill install the parent is
+    # `novaxinwei`, so `engine` is not importable and `python -m
+    # novaxinwei.engine.transport` would fail here (BUG-29).
+    from . import safety
     check("safety DEFAULT_MAX_REDIRECTS positive", safety.DEFAULT_MAX_REDIRECTS >= 1)
 
     # --- summary ---
