@@ -1,4 +1,6 @@
 ---
+name: wayai
+description: Historical URL discovery for a domain from Wayback Machine, Common Crawl, and archive snapshots, de-duplicated and filtered before handing URLs to a fetch or secret-scan stage. Use when reconstructing a target's past attack surface or feeding a recon pipeline with URLs that no longer appear in the live site.
 domain: security
 category: recon
 trigger:
