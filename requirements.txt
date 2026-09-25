@@ -8,3 +8,12 @@ pyyaml>=6.0
 github3.py>=4.0
 requests>=2.28
 beautifulsoup4>=4.12
+
+# --- Optional extractors -------------------------------------------------
+# fetch_chain imports each of these inside a try/except and degrades to a
+# documented error code when absent (pdf_no_extractor), so they are not hard
+# requirements. Declared here so the capability is installable instead of
+# silently dead. Install with:  pip install -r requirements.txt
+pdfplumber>=0.11       # _extract_pdf: preferred path (multi-column, tables)
+pypdf>=4.0             # _extract_pdf: fallback when pdfplumber is absent
+resiliparse>=0.14      # _extract_response: maincontent (opt-in) boilerplate strip
