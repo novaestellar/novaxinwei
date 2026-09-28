@@ -70,7 +70,7 @@ npx patchright install chrome
 ### 호출 (engine 내부)
 
 ```python
-from insane_search.engine.executor import run_playwright_fallback
+from engine.executor import run_playwright_fallback
 
 attempt, html = run_playwright_fallback(
     "https://example.com/path",
@@ -130,7 +130,7 @@ const ctx = await chromium.launchPersistentContext(profileDir, {
 
 ## 디버깅 팁
 
-- `profileDir`를 고정 경로로 두면 세션·쿠키가 유지되어 재시도 빠름 (`/tmp/.insane_pw_profile`)
+- `profileDir`를 고정 경로로 두면 세션·쿠키가 유지되어 재시도 빠름 (`/tmp/.novaxinwei_pw_profile`)
 - Akamai 재시도가 잦으면 `profileDir`를 삭제해 fresh 상태로 리셋
 - 실패 시 `result.trace`의 `error` 필드에 Node stderr 200자가 포함됨
 
