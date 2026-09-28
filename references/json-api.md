@@ -49,12 +49,12 @@ for e in root.findall("a:entry", ns):
 # 1) https://www.reddit.com/prefs/apps 에서 'script' 타입 앱 등록 → client_id / secret
 # 2) application-only 토큰 발급
 TOKEN=$(curl -s -u "$CLIENT_ID:$CLIENT_SECRET" \
-  -d "grant_type=client_credentials" -A "insane-search/1.0" \
+  -d "grant_type=client_credentials" -A "novaxinwei/1.0" \
   https://www.reddit.com/api/v1/access_token \
   | python3 -c "import sys,json;print(json.load(sys.stdin)['access_token'])")
 
 # 3) oauth.reddit.com (www가 아니라 oauth 서브도메인 — 여기는 WAF 차단 없음)
-curl -s -H "Authorization: bearer $TOKEN" -A "insane-search/1.0" \
+curl -s -H "Authorization: bearer $TOKEN" -A "novaxinwei/1.0" \
   "https://oauth.reddit.com/r/{subreddit}/hot?limit=25"
 ```
 
@@ -162,7 +162,7 @@ curl -sL "https://en.wikipedia.org/w/api.php?action=opensearch&search={query}&li
 ## V2EX
 
 ```bash
-curl -sL "https://www.v2ex.com/api/topics/hot.json" -H "User-Agent: insane-search/1.0"
+curl -sL "https://www.v2ex.com/api/topics/hot.json" -H "User-Agent: novaxinwei/1.0"
 ```
 
 ## RSS 피드

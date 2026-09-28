@@ -5,7 +5,7 @@
 ## 검색 (트윗 발견)
 
 ```bash
-cd "${CLAUDE_PLUGIN_ROOT}/skills/insane-search"
+cd /path/to/novaxinwei
 python3 -m engine.x_search "{검색어}" --limit 10
 ```
 

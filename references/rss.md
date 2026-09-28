@@ -124,5 +124,5 @@ for e in feed.entries[:10]:
 ```bash
 # 공개 인스턴스 목록: https://searx.space
 curl -sL "https://search.mdosch.de/search?q={검색어}&format=json" \
-  -H "User-Agent: insane-search/1.0"
+  -H "User-Agent: novaxinwei/1.0"
 ```
