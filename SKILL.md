@@ -109,8 +109,8 @@ python -m novaxinwei dorks github password
 
 ### 3. Dork Databases
 - **Shodan:** 128 dork patterns (7 categories)
-- **GitHub:** 141 dork patterns (10 categories) — curated for automated API search with rate limiting
-  - **Extended corpus:** For comprehensive 1400+ GitHub dork keyword reference (manual audit, offline grep), see Novahaku's `testing/references/payloadsallthethings-extras/Insecure Source Code Management/Files/github-dorks.txt`
+- **GitHub:** 127 dork patterns (10 categories) — curated for automated API search with rate limiting
+  - **Extended corpus:** For comprehensive 1400+ GitHub dork keyword reference (manual audit, offline grep), see Novahaku's `testing/references/payloads-extras/Insecure Source Code Management/Files/github-dorks.txt`
 
 ### 4. Parallel Fetch
 ```python
