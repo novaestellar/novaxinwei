@@ -167,7 +167,7 @@ fetch_chain.py (1276 lines) — CORE ENTRY POINT
 
 | File | Lines | Format | Contents |
 |------|-------|--------|----------|
-| `dorks/shodan-dorks.yaml` | 424 | YAML | **126 dork patterns** across 7 categories |
+| `dorks/shodan-dorks.yaml` | 424 | YAML | **128 dork patterns** across 7 categories |
 | `dorks/github-dorks.txt` | 141 | Plain text | **127+ dork patterns** (one per line, comments with #) |
 | `dorks/github_dorks/` | 3 files | Python | Full GitHub dork CLI with `github3` API integration |
 
@@ -345,7 +345,7 @@ D:/Labs/novaxinwei/engagements/
 | Total .sh files | 0 |
 | Engine modules | 18 (+ 2 template .py) |
 | Channel backends | 15 |
-| Dork patterns (Shodan) | ~126 (7 categories) |
+| Dork patterns (Shodan) | ~128 (7 categories) |
 | Dork patterns (GitHub) | ~127+ (txt file) |
 | Phase 0 platforms | 15 |
 | CLI entry points | 5 |

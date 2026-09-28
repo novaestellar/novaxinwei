@@ -25,7 +25,7 @@ NovaXinWei 是一个统一的网络侦察引擎，整合了 **4大核心能力**
 |------|------|
 | 🛡️ WAF绕过抓取链 | curl_cffi TLS指纹模拟 + Playwright无头浏览器回退 |
 | 🌐 15平台API路由 | Reddit、YouTube、X/Twitter、Threads、小红书、B站、V2EX、Facebook、Instagram、LinkedIn、博客园、CSDN、SegmentFault、SoGitee、Codeberg |
-|| 🔍 Dork数据库 | Shodan 126+模式 + GitHub 127+模式,多分类 |
+|| 🔍 Dork数据库 | Shodan 128+模式 + GitHub 127+模式,多分类 |
 | ⏰ Wayback历史挖掘 | Wayback Machine + Common Crawl历史URL、子域名发现 |
 | ⚡ 并行抓取 | ThreadPoolExecutor，可配置工作线程数 |
 | 🧠 自学习系统 | 4层反馈闭环，自动记录成功模式 |
@@ -162,7 +162,7 @@ novaxinwei/
 │   ├── rss.py               # RSS通用
 │   └── web.py               # Web兜底
 ├── dorks/                   # Dork数据库
-│   ├── shodan-dorks.yaml    # Shodan 126模式
+│   ├── shodan-dorks.yaml    # Shodan 128模式
 │   ├── github-dorks.txt     # GitHub 127模式
 │   └── github_dorks/        # GitHub Dorks CLI
 │       ├── __init__.py
@@ -256,7 +256,7 @@ python -m novaxinwei check reddit
 
 ### 3. Dork数据库
 
-#### Shodan Dorks (126+模式, 7分类)
+#### Shodan Dorks (128+模式, 7分类)
 
 | 分类 | 模式数 | 说明 |
 |------|--------|------|
@@ -370,7 +370,7 @@ NovaXinWei (新信微) 与 [Novahaku](https://github.com/novaestellar/novahaku) 
   │   - URL变换(移动端、JSON、RSS)
   │
   ├─ 1c. Dork数据库查询
-  │   - Shodan 126+模式(Web Server/DB/IoT/Cloud/Industrial/Network/Security)
+  │   - Shodan 128+模式(Web Server/DB/IoT/Cloud/Industrial/Network/Security)
   │   - GitHub 127+模式(Credentials/Config/Keys/CI-CD/Cloud等10分类)
   │
   ├─ 1d. 并行批量抓取
@@ -426,7 +426,7 @@ NovaXinWei (新信微) 与 [Novahaku](https://github.com/novaestellar/novahaku) 
 | 新信微输出数据 | 来源渠道/功能 | Novahaku接收模块 | 测试方向 |
 |----------------|--------------|------------------|----------|
 | **子域名列表** | Shodan Dorks + GitHub Dorks + crt.sh | OSINT被动侦察 | 子域名枚举→扩大攻击面 |
-| **端口/服务信息** | Shodan Dorks (126模式) | OSINT + Web测试 | 服务指纹→选择测试向量 |
+| **端口/服务信息** | Shodan Dorks (128模式) | OSINT + Web测试 | 服务指纹→选择测试向量 |
 | **技术栈指纹** | WAF绕过抓取链(Wappalyzer) | Web测试(14模块) | 根据框架选择: Laravel审计/Supabase审计/Next.js审计 |
 | **WAF类型** | WAF检测器(waf_detector.py) | Web测试(WAF绕过) | 绕过策略: payload变形、编码绕过、时间盲注 |
 | **社交媒体内容** | 15平台API路由 | OSINT + 提示工程 | 信息泄露→社工素材、暴露凭据 |
